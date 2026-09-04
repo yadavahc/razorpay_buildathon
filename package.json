@@ -1,0 +1,48 @@
+{
+  "name": "reclaim-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RECLAIM AI — Autonomous Revenue Recovery Decisioning Engine",
+  "workspaces": [
+    "packages/core",
+    "apps/web",
+    "functions"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @reclaim/web",
+    "build": "npm run build --workspace @reclaim/web",
+    "start": "npm run start --workspace @reclaim/web",
+    "lint": "npm run lint --workspace @reclaim/web",
+    "typecheck": "tsc -p packages/core/tsconfig.json --noEmit && npm run typecheck --workspace @reclaim/web",
+    "seed": "tsx scripts/seed.ts",
+    "seed:firestore": "tsx scripts/seed-firestore.ts",
+    "train": "tsx scripts/train-model.ts",
+    "evaluate": "tsx scripts/evaluate-model.ts",
+    "reset": "tsx scripts/reset-demo.ts",
+    "bootstrap": "npm run seed && npm run train",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:agent": "vitest run tests/agent",
+    "test:e2e": "vitest run tests/e2e",
+    "test:failure": "vitest run tests/failure",
+    "test:report": "tsx scripts/test-report.ts",
+    "verify": "npm run typecheck && npm run test:report && npm run build",
+    "functions:build": "npm run build --workspace @reclaim/functions",
+    "emulators": "firebase emulators:start",
+    "check:firestore": "tsx scripts/check-firestore.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8",
+    "firebase-admin": "^13.0.2",
+    "dotenv": "^16.4.7"
+  }
+}

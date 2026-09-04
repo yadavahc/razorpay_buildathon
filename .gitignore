@@ -1,0 +1,29 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+lib/
+coverage/
+*.tsbuildinfo
+
+# Environment — never commit real credentials
+.env
+.env.local
+.env.*.local
+serviceAccount*.json
+
+# Generated corpus. Regenerate with `npm run seed` (deterministic, seed-locked).
+data/*.json
+data/*.csv
+!data/.gitkeep
+
+# Generated test report consumed by the System Quality page
+apps/web/public/quality-report.json
+
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.DS_Store
+Thumbs.db
