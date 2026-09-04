@@ -2,10 +2,15 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { formatMinorCompact, formatPercent } from '@reclaim/core/presentation';
 import { AnimatedNumber } from './animated-number';
-import { RevenueFlow } from './revenue-flow';
+import { HeroScene } from './hero-scene';
+import { HowItWorks } from './how-it-works';
+import { InfrastructureMap } from './infrastructure-map';
+import { RazorpayBadge, RazorpayMark } from './razorpay-mark';
+import { SoundToggle } from './sound-toggle';
+import { useSectionCue, useSound } from './sound';
 import { Badge, Button, Surface, cn } from '@/components/ui/primitives';
 
 export interface LandingStats {
@@ -63,11 +68,19 @@ function Reveal({
 
 export function Hero({ stats }: { stats: LandingStats }) {
   const reduced = useReducedMotion();
+  const { play } = useSound();
+  const [demoOpen, setDemoOpen] = useState(false);
+  // Warm the demo's data on intent, so opening it is instant rather than a spinner.
+  const [demoPrimed, setDemoPrimed] = useState(false);
 
   return (
     <section className="relative isolate min-h-[100svh] overflow-hidden">
       {/* The flow field sits behind everything, masked so it never fights the type. */}
-      <RevenueFlow className="pointer-events-none absolute inset-0 -z-10 opacity-70" />
+      <HeroScene className="pointer-events-none absolute inset-0 -z-10 opacity-90" />
+      {/* Scrims, in order of what they protect. The stream is dense enough to destroy body
+          copy, so the type sits on its own ground rather than fighting for contrast: a
+          left-weighted wash under the headline column, then the usual vignette and floor. */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-ink-950 via-ink-950/85 to-transparent lg:via-ink-950/60" />
       <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-fade" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-64 bg-gradient-to-t from-ink-950 to-transparent" />
 
@@ -77,26 +90,23 @@ export function Hero({ stats }: { stats: LandingStats }) {
           <span className="text-sm font-medium tracking-[0.2em] text-silver-200">RECLAIM</span>
         </div>
         <nav className="flex items-center gap-2">
-          <Link
-            href="#how"
-            className="hidden rounded-lg px-3 py-2 text-xs text-silver-400 transition-colors hover:text-silver-100 sm:block"
-          >
-            How it works
-          </Link>
-          <Link
-            href="#architecture"
-            className="hidden rounded-lg px-3 py-2 text-xs text-silver-400 transition-colors hover:text-silver-100 sm:block"
-          >
-            Architecture
-          </Link>
-          <Link
-            href="#impact"
-            className="hidden rounded-lg px-3 py-2 text-xs text-silver-400 transition-colors hover:text-silver-100 sm:block"
-          >
-            Impact
-          </Link>
-          <Link href="/dashboard">
-            <Button size="sm" variant="primary">
+          {[
+            { href: '#how', label: 'How it works' },
+            { href: '#architecture', label: 'Architecture' },
+            { href: '#impact', label: 'Impact' },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onMouseEnter={() => play('hover')}
+              className="hidden rounded-lg px-3 py-2 text-xs text-silver-400 transition-colors duration-300 hover:text-silver-100 sm:block"
+            >
+              {item.label}
+            </Link>
+          ))}
+          <SoundToggle className="ml-1" />
+          <Link href="/dashboard" onMouseEnter={() => play('hover')}>
+            <Button size="sm" variant="primary" onClick={() => play('press')}>
               Launch control tower
             </Button>
           </Link>
@@ -110,10 +120,13 @@ export function Hero({ stats }: { stats: LandingStats }) {
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           className="max-w-4xl"
         >
-          <Badge tone="neutral" size="md" className="mb-8">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mint-400" />
-            Track 03 — AI Revenue Recovery
-          </Badge>
+          <div className="mb-8 flex flex-wrap items-center gap-2.5">
+            <Badge tone="neutral" size="md">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mint-400" />
+              Track 03 — AI Revenue Recovery
+            </Badge>
+            <RazorpayBadge />
+          </div>
 
           <h1 className="text-6xl font-light tracking-[-0.04em] text-silver-50 sm:text-8xl lg:text-9xl">
             RECLAIM
@@ -128,14 +141,32 @@ export function Hero({ stats }: { stats: LandingStats }) {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Link href="/dashboard">
-              <Button size="lg" variant="primary">
+            <Button
+              size="lg"
+              variant="primary"
+              onClick={() => {
+                play('press');
+                setDemoOpen(true);
+              }}
+              onMouseEnter={() => {
+                play('hover');
+                setDemoPrimed(true);
+              }}
+              onFocus={() => setDemoPrimed(true)}
+            >
+              See how it works
+              <motion.span
+                aria-hidden
+                className="inline-block"
+                animate={reduced ? undefined : { x: [0, 3, 0] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                →
+              </motion.span>
+            </Button>
+            <Link href="/dashboard" onMouseEnter={() => play('hover')}>
+              <Button size="lg" variant="secondary" onClick={() => play('press')}>
                 Launch control tower
-              </Button>
-            </Link>
-            <Link href="/dashboard/demo">
-              <Button size="lg" variant="secondary">
-                Run a live recovery
               </Button>
             </Link>
           </div>
@@ -190,6 +221,8 @@ export function Hero({ stats }: { stats: LandingStats }) {
           />
         </motion.dl>
       </div>
+
+      <HowItWorks open={demoOpen} primed={demoPrimed} onClose={() => setDemoOpen(false)} />
     </section>
   );
 }
@@ -236,8 +269,10 @@ function Mark() {
 /* -------------------------------------------------------------------------- */
 
 export function ProblemSection({ stats }: { stats: LandingStats }) {
+  const ref = useRef<HTMLElement>(null);
+  useSectionCue(ref);
   return (
-    <section className="relative mx-auto max-w-7xl px-6 py-28">
+    <section ref={ref} className="relative mx-auto max-w-7xl px-6 py-28">
       <Reveal>
         <p className="label-eyebrow">The gap</p>
         <h2 className="mt-4 max-w-3xl text-3xl font-light tracking-tight text-silver-100 sm:text-4xl text-balance">
@@ -338,8 +373,10 @@ const LOOP_STAGES = [
 ] as const;
 
 export function LoopSection() {
+  const ref = useRef<HTMLElement>(null);
+  useSectionCue(ref);
   return (
-    <section id="how" className="relative border-y border-white/[0.06] bg-ink-900/40">
+    <section ref={ref} id="how" className="relative border-y border-white/[0.06] bg-ink-900/40">
       <div className="mx-auto max-w-7xl px-6 py-28">
         <Reveal>
           <p className="label-eyebrow">The closed loop</p>
@@ -424,8 +461,11 @@ export function ArchitectureSection({ stats }: { stats: LandingStats }) {
     },
   ];
 
+  const ref = useRef<HTMLElement>(null);
+  useSectionCue(ref);
+
   return (
-    <section id="architecture" className="mx-auto max-w-7xl px-6 py-28">
+    <section ref={ref} id="architecture" className="mx-auto max-w-7xl px-6 py-28">
       <Reveal>
         <p className="label-eyebrow">Architecture</p>
         <h2 className="mt-4 max-w-3xl text-3xl font-light tracking-tight text-silver-100 sm:text-4xl text-balance">
@@ -437,10 +477,21 @@ export function ArchitectureSection({ stats }: { stats: LandingStats }) {
           between a customer and a charge. RECLAIM puts a deterministic engine in that position
           instead.
         </p>
+        <p className="mt-5 max-w-2xl text-base leading-relaxed text-silver-300 text-pretty">
+          <RazorpayMark className="mr-2 inline h-4 align-[-2px]" title="Razorpay" />
+          Razorpay provides the payment rails. RECLAIM is the intelligence and decisioning layer
+          above them.
+        </p>
+      </Reveal>
+
+      <Reveal delay={0.08}>
+        <div className="mt-12 overflow-hidden rounded-xl border border-white/[0.07] bg-ink-900/40">
+          <InfrastructureMap className="h-[480px] w-full sm:h-[620px]" />
+        </div>
       </Reveal>
 
       <Reveal delay={0.1}>
-        <div className="mt-14 overflow-hidden rounded-xl border border-white/[0.07]">
+        <div className="mt-6 overflow-hidden rounded-xl border border-white/[0.07]">
           {layers.map((layer, index) => (
             <div
               key={layer.name}
@@ -476,8 +527,10 @@ export function ArchitectureSection({ stats }: { stats: LandingStats }) {
 /* -------------------------------------------------------------------------- */
 
 export function ImpactSection({ stats }: { stats: LandingStats }) {
+  const ref = useRef<HTMLElement>(null);
+  useSectionCue(ref);
   return (
-    <section id="impact" className="relative border-t border-white/[0.06] bg-ink-900/40">
+    <section ref={ref} id="impact" className="relative border-t border-white/[0.06] bg-ink-900/40">
       <div className="mx-auto max-w-7xl px-6 py-28">
         <Reveal>
           <p className="label-eyebrow">Measurable impact</p>
@@ -610,9 +663,16 @@ export function LandingFooter() {
   return (
     <footer className="border-t border-white/[0.06]">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Mark />
-          <span className="text-xs tracking-[0.2em] text-silver-500">RECLAIM</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Mark />
+            <span className="text-xs tracking-[0.2em] text-silver-500">RECLAIM</span>
+          </div>
+          <span className="h-4 w-px bg-white/10" aria-hidden />
+          <span className="flex items-center gap-2">
+            <RazorpayMark className="h-3.5" title="Razorpay" />
+            <span className="text-2xs text-silver-600">Built for Razorpay</span>
+          </span>
         </div>
         <p className="max-w-xl text-2xs leading-relaxed text-silver-600 text-pretty">
           Built on synthetic data. No real customer records, no real payment credentials, and no

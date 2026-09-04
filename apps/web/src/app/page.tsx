@@ -8,6 +8,7 @@ import {
   LoopSection,
   ProblemSection,
 } from '@/components/landing/sections';
+import { SoundProvider } from '@/components/landing/sound';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,13 +56,17 @@ export default async function LandingPage() {
   const stats = await loadStats();
 
   return (
-    <main id="main" className="relative">
-      <Hero stats={stats} />
-      <ProblemSection stats={stats} />
-      <LoopSection />
-      <ArchitectureSection stats={stats} />
-      <ImpactSection stats={stats} />
-      <LandingFooter />
-    </main>
+    // The sound design is scoped to this page. The dashboard is a working tool and the
+    // provider never wraps it, so `useSound` there returns the no-op implementation.
+    <SoundProvider>
+      <main id="main" className="relative">
+        <Hero stats={stats} />
+        <ProblemSection stats={stats} />
+        <LoopSection />
+        <ArchitectureSection stats={stats} />
+        <ImpactSection stats={stats} />
+        <LandingFooter />
+      </main>
+    </SoundProvider>
   );
 }

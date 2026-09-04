@@ -57,6 +57,16 @@ const config: Config = {
           400: '#93b4f8',
           500: '#6187e8',
         },
+        // Razorpay's blue. Used only where the page speaks about the payment rail it sits
+        // on -- the integration badge, the provider chips, the rail in the hero scene --
+        // so the mint accent keeps meaning "recovered money" and nothing competes with it.
+        razorpay: {
+          300: '#6BB4FF',
+          400: '#3395FF',
+          500: '#1A77E8',
+          600: '#0B5BC4',
+          900: '#0C2451',
+        },
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
