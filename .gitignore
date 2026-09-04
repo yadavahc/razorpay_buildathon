@@ -7,6 +7,7 @@ dist/
 # apps/web/src/lib and scripts/lib, which are source, and excluding them produces a repo
 # that builds locally and fails in CI with "Cannot find module '@/lib/api'".
 packages/*/lib/
+functions/lib/
 coverage/
 *.tsbuildinfo
 
