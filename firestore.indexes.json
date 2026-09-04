@@ -1,0 +1,115 @@
+{
+  "//": [
+    "Firestore automatically indexes every single field, so a query with ONE equality",
+    "filter and no ordering needs nothing declared here. Almost every read RECLAIM issues",
+    "is exactly that shape, which is why this file is short.",
+    "",
+    "The first two entries are REQUIRED today — they are the only two multi-filter queries",
+    "in the codebase, and without them those reads fail with FAILED_PRECONDITION:",
+    "  · recovery_cases (merchantId + sourceId)  — the case de-duplication lookup",
+    "  · recovery_cases (merchantId + status)    — the detection guard on startup",
+    "",
+    "The remainder support the ordered, server-paged reads described under 'Scale notes'",
+    "in docs/firestore-schema.md. They are declared ahead of that change because deploying",
+    "an index is slow and discovering the need in production is worse; they cost storage",
+    "and nothing else until a query uses them."
+  ],
+
+  "indexes": [
+    {
+      "collectionGroup": "recovery_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "sourceId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recovery_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "recovery_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "priorityScore", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recovery_cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "detectedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "customerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recovery_actions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "caseId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recovery_outcomes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "outcome", "order": "ASCENDING" },
+        { "fieldPath": "recordedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "audit_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "seq", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "audit_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "caseId", "order": "ASCENDING" },
+        { "fieldPath": "seq", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "merchantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dueAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+
+  "fieldOverrides": []
+}

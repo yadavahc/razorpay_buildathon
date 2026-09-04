@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "reclaim-razorpay"
+  },
+  "targets": {
+    "reclaim-razorpay": {
+      "hosting": {
+        "app": ["reclaim-razorpay-2c628"]
+      }
+    }
+  }
+}

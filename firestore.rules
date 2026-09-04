@@ -1,0 +1,164 @@
+rules_version = '2';
+
+// RECLAIM — Firestore security rules
+//
+// The governing principle: the browser reads, the server writes.
+//
+// Every financial mutation in RECLAIM goes through the action executor, which runs
+// server-side behind the policy engine and the idempotency ledger. Letting a client write
+// a recovery action, an outcome, or an audit entry directly would route around all of it.
+// So client writes are denied on every collection that records money or decisions, and the
+// Admin SDK — which bypasses these rules entirely — is the only writer.
+//
+// Reads are scoped by merchant. A signed-in user may read the data belonging to their own
+// merchant and nothing else.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ---------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The user's merchant is stamped on their custom claims by the server at sign-up.
+    // Falling back to the users document would allow a client to read across merchants
+    // during the window before claims propagate, so we require the claim.
+    function callerMerchantId() {
+      return request.auth.token.merchantId;
+    }
+
+    function belongsToCaller(resourceData) {
+      return isSignedIn()
+        && callerMerchantId() != null
+        && resourceData.merchantId == callerMerchantId();
+    }
+
+    function isMerchantMember(merchantId) {
+      return isSignedIn() && callerMerchantId() == merchantId;
+    }
+
+    // ---- merchant + users ------------------------------------------------
+
+    match /merchants/{merchantId} {
+      allow read: if isMerchantMember(merchantId);
+      allow write: if false; // server only
+    }
+
+    match /users/{userId} {
+      // A user may read their own record; the server maintains it.
+      allow read: if isSignedIn() && (request.auth.uid == userId || belongsToCaller(resource.data));
+      allow write: if false; // server only
+    }
+
+    // ---- operational data: readable by the owning merchant, never writable ----
+
+    match /customers/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /payments/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /payment_attempts/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /subscriptions/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /invoices/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /checkout_sessions/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    // ---- recovery pipeline: strictly server-written -----------------------
+    //
+    // These are the records that represent money moving and decisions being made. A
+    // client that could write here could fabricate a recovery, suppress a policy denial,
+    // or forge an audit entry.
+
+    match /recovery_cases/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /recovery_actions/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /recovery_outcomes/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /ai_decisions/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /policy_decisions/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /notifications/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    match /payment_links/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow write: if false;
+    }
+
+    // ---- audit trail: append-only, and not even that from a client --------
+    //
+    // The audit log is hash-chained. A client write would break the chain even if it were
+    // otherwise benign, so it is denied outright. Reads are allowed so the audit screen
+    // can verify the chain in the browser.
+
+    match /audit_logs/{docId} {
+      allow read: if belongsToCaller(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    // ---- chain head: server bookkeeping, not an audit entry --------------
+    //
+    // One pointer per merchant holding the latest sequence number and hash. It lives in
+    // its own collection so a merchant-scoped read of `audit_logs` returns only real
+    // entries, and clients have no reason to see it at all.
+
+    match /audit_chain_heads/{merchantId} {
+      allow read, write: if false;
+    }
+
+    // ---- idempotency ledger: invisible to clients ------------------------
+    //
+    // No read access at all. The keys are derived from case and amount data, and exposing
+    // the ledger would let a client probe which actions have been taken.
+
+    match /idempotency_keys/{docId} {
+      allow read, write: if false;
+    }
+
+    // ---- default deny ----------------------------------------------------
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

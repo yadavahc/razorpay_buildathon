@@ -1,0 +1,55 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+
+  "//hosting": [
+    "RECLAIM is a Next.js app with dynamic route handlers and a server-side engine, so it",
+    "cannot be deployed as a static export. `source` points at the app directory and lets",
+    "Firebase's web-frameworks integration build it and place the server on Cloud Functions.",
+    "",
+    "That integration must be enabled once before the first deploy:",
+    "  firebase experiments:enable webframeworks",
+    "",
+    "The corpus and the model artifact must exist at build time or the deployed app will",
+    "report itself degraded, so run `npm run bootstrap` first.",
+    "",
+    "Deploying to a different Hosting site than the default one is what `target` selects;",
+    "the mapping lives in .firebaserc."
+  ],
+  "hosting": {
+    "target": "app",
+    "source": "apps/web",
+    "frameworksBackend": {
+      "region": "asia-south1",
+      "maxInstances": 10
+    },
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  },
+
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "reclaim",
+      "runtime": "nodejs20",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
+    }
+  ],
+
+  "emulators": {
+    "auth": { "port": 9099 },
+    "functions": { "port": 5001 },
+    "firestore": { "port": 8080 },
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": true, "port": 4000 },
+    "singleProjectMode": true
+  }
+}
