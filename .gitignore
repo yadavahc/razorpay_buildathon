@@ -3,7 +3,10 @@ node_modules/
 out/
 build/
 dist/
-lib/
+# Compiled package output only. NOT an unanchored `lib/` — that also matches
+# apps/web/src/lib and scripts/lib, which are source, and excluding them produces a repo
+# that builds locally and fails in CI with "Cannot find module '@/lib/api'".
+packages/*/lib/
 coverage/
 *.tsbuildinfo
 
