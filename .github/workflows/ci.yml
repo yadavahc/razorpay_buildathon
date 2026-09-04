@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # The corpus is generated rather than committed, so CI builds it the same way a
+      # developer does. Being seed-locked, the dataset CI trains on is byte-identical to
+      # the one on a laptop — which is what makes the reported metrics comparable.
+      - name: Generate corpus and train the model
+        run: npm run bootstrap
+
+      - name: Test suite
+        run: npm run test:report
+
+      - name: Build
+        run: npm run build
+
+      - name: Build Cloud Functions
+        run: npm run functions:build
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report
+          path: apps/web/public/quality-report.json
+          if-no-files-found: ignore
