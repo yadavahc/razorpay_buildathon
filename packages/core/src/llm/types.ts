@@ -57,7 +57,7 @@ export interface CompletionResponse {
  * across providers instead of reimplemented per SDK.
  */
 export interface LlmProvider {
-  readonly name: 'openai' | 'anthropic';
+  readonly name: 'openai' | 'anthropic' | 'gemini';
   readonly model: string;
   complete(request: CompletionRequest): Promise<CompletionResponse>;
 }

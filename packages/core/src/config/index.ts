@@ -49,6 +49,9 @@ const envSchema = z.object({
   OPENAI_BASE_URL: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().optional(),
+  GEMINI_BASE_URL: z.string().optional(),
   LLM_TIMEOUT_MS: intish(20_000),
 
   POLICY_MAX_RETRIES: intish(3),
@@ -84,7 +87,7 @@ export interface PolicyConfig {
 }
 
 export interface LlmConfig {
-  provider: 'openai' | 'anthropic' | 'deterministic';
+  provider: 'openai' | 'anthropic' | 'gemini' | 'deterministic';
   model: string;
   apiKey: string | null;
   baseUrl: string;
@@ -129,6 +132,15 @@ function resolveLlm(env: z.infer<typeof envSchema>): LlmConfig {
       model: env.OPENAI_MODEL ?? 'gpt-4o-mini',
       apiKey: env.OPENAI_API_KEY,
       baseUrl: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+      timeoutMs: env.LLM_TIMEOUT_MS,
+    };
+  }
+  if (env.GEMINI_API_KEY) {
+    return {
+      provider: 'gemini',
+      model: env.GEMINI_MODEL ?? 'gemini-3.5-flash-lite',
+      apiKey: env.GEMINI_API_KEY,
+      baseUrl: env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
       timeoutMs: env.LLM_TIMEOUT_MS,
     };
   }
