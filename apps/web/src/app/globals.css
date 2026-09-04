@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  /* Respect the system setting rather than animating over someone's vestibular disorder. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    @apply bg-ink-950 text-silver-200 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Tabular figures everywhere a number can change, so digits do not jitter. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    @apply bg-mint-500/25 text-silver-50;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-mint-500/60 ring-offset-2 ring-offset-ink-950;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-transparent bg-ink-600 bg-clip-content;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-500 bg-clip-content;
+  }
+}
+
+@layer components {
+  /*
+   * The glass surface. One definition, used by every panel in the product, so depth is
+   * consistent: a hairline border, a barely-there gradient, and a top highlight.
+   */
+  .surface {
+    @apply relative rounded-xl border border-white/[0.07] bg-gradient-to-b from-ink-850/90 to-ink-900/90 shadow-glass backdrop-blur-xl;
+  }
+
+  .surface-raised {
+    @apply relative rounded-2xl border border-white/[0.09] bg-gradient-to-b from-ink-800/95 to-ink-850/95 shadow-glass-lg backdrop-blur-2xl;
+  }
+
+  .surface-inset {
+    @apply rounded-lg border border-white/[0.05] bg-ink-950/60;
+  }
+
+  /* The hairline rule used between rows and sections. */
+  .hairline {
+    @apply border-white/[0.06];
+  }
+
+  .label-eyebrow {
+    @apply text-2xs font-medium uppercase tracking-widest text-silver-500;
+  }
+
+  /* A subtle animated sheen for loading states. */
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      rgb(255 255 255 / 0) 0%,
+      rgb(255 255 255 / 0.06) 50%,
+      rgb(255 255 255 / 0) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Grid backdrop for hero and control-room sections. */
+  .grid-backdrop {
+    @apply bg-grid-fade bg-grid;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black, transparent);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black, transparent);
+  }
+
+  /* Skip link, visible only on keyboard focus. */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-ink-800 focus:px-4 focus:py-2 focus:text-silver-100;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Fade the edges of a horizontally scrolling region. */
+  .scroll-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 24px,
+      black calc(100% - 24px),
+      transparent
+    );
+  }
+}
