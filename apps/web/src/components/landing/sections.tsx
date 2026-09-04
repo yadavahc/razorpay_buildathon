@@ -79,6 +79,10 @@ export function Hero({ stats }: { stats: LandingStats }) {
           hero does not own a scene of its own any more — it just protects its own type
           from the rail passing behind it. */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-ink-950 via-ink-950/80 to-transparent lg:via-ink-950/55" />
+      {/* The masthead sits on clean ground. Nothing from the world is allowed to travel
+          up behind the nav, where it competes with the one row of links that has to stay
+          instantly readable. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-ink-950 via-ink-950/85 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-64 bg-gradient-to-t from-ink-950 to-transparent" />
 
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-6">

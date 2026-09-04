@@ -64,64 +64,27 @@ function band(p: number, from: number, to: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/** Visible only near its own station, so distant stations cost nothing to look at. */
-function stationOpacity(p: number, centre: number, width = 0.16): number {
-  // Reaches exactly zero at `width` from the centre. The previous form subtracted the
-  // width before dividing, which left a station a quarter visible from half a page away —
-  // the rails labels showed through the hero.
-  return THREE.MathUtils.clamp(1 - Math.abs(p - centre) / width, 0, 1);
-}
-
 /* -------------------------------------------------------------------------- */
 /* Station geometry                                                            */
 /* -------------------------------------------------------------------------- */
 
-const STATION_Z = { hero: 0, rails: -44, loop: -92, infra: -148 } as const;
+const STATION_Z = { hero: 0 } as const;
 
 /**
- * The flight path, derived from the same measured marks the stations use.
+ * The camera path.
  *
- * Keeping waypoints as separate hardcoded fractions was the bug that made the loop station
- * fade in while the camera was still forty units short of it: two sources of truth for one
- * position. Now there is one — the marks — and the camera is guaranteed to arrive where a
- * station actually is.
+ * With the rails and loop stations removed there is nowhere to fly to, so this is a slow
+ * recede: the hero settles back and lifts slightly as the page scrolls away from it, and
+ * the whole canvas fades out before the architecture section's own scene begins.
  */
 type Marks = { rails: number; loop: number; handoff: number };
 
-function pathFor(marks: Marks): Array<{ at: number; pos: THREE.Vector3; look: THREE.Vector3 }> {
-  const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-  return [
-    { at: 0, pos: v(0, 0.6, 15), look: v(0, -1.6, 0) },
-    { at: marks.rails * 0.45, pos: v(0, 1.2, -6), look: v(0, 0.2, -28) },
-    // Arrive just in front of the rails plane, looking along it.
-    { at: marks.rails, pos: v(0, 1.8, STATION_Z.rails + 17), look: v(2, 0.4, STATION_Z.rails - 6) },
-    { at: (marks.rails + marks.loop) / 2, pos: v(0, 2.4, STATION_Z.rails - 18), look: v(3, 0.6, STATION_Z.loop + 6) },
-    // Enter the helix and travel down it.
-    { at: marks.loop, pos: v(2.6, 0.2, STATION_Z.loop + 12), look: v(6.8, -1.4, STATION_Z.loop - 14) },
-    { at: marks.loop + 0.07, pos: v(5.8, -0.4, STATION_Z.loop - 12), look: v(6.8, -1.6, STATION_Z.loop - 30) },
-    // Pull away before the architecture canvas takes over.
-    { at: marks.handoff, pos: v(0, 3.2, STATION_Z.loop - 34), look: v(0, 0, STATION_Z.infra) },
-    { at: 1, pos: v(0, 2.2, STATION_Z.infra + 14), look: v(0, -0.4, STATION_Z.infra - 10) },
-  ];
-}
-
 function sampleWaypoints(p: number, marks: Marks) {
-  const path = pathFor(marks);
-  let a = path[0]!;
-  let b = path[path.length - 1]!;
-  for (let i = 0; i < path.length - 1; i += 1) {
-    if (p >= path[i]!.at && p <= path[i + 1]!.at) {
-      a = path[i]!;
-      b = path[i + 1]!;
-      break;
-    }
-  }
-  const span = Math.max(b.at - a.at, 0.0001);
-  const t = THREE.MathUtils.clamp((p - a.at) / span, 0, 1);
+  const t = THREE.MathUtils.clamp(p / Math.max(marks.handoff, 0.0001), 0, 1);
   const e = t * t * (3 - 2 * t);
   return {
-    pos: a.pos.clone().lerp(b.pos, e),
-    look: a.look.clone().lerp(b.look, e),
+    pos: new THREE.Vector3(0, 0.6 + e * 2.4, 15 + e * 10),
+    look: new THREE.Vector3(0, -1.6 + e * 0.9, 0),
   };
 }
 
@@ -139,8 +102,10 @@ function FlightRig() {
     // than as the flight path wobbling.
     smoothed.current.x += (pointer.current.x - smoothed.current.x) * k;
     smoothed.current.y += (pointer.current.y - smoothed.current.y) * k;
-    pos.x += smoothed.current.x * 1.5;
-    pos.y += -smoothed.current.y * 0.9;
+    // A hint of depth response, not a wobble. At 1.5 the whole scene swam under the
+    // cursor and the hero read as unstable rather than as three-dimensional.
+    pos.x += smoothed.current.x * 0.3;
+    pos.y += -smoothed.current.y * 0.18;
 
     camera.position.lerp(pos, k);
     lookAt.current.lerp(look, k);
@@ -154,7 +119,7 @@ function FlightRig() {
 /* Station 1 — the revenue rail                                                */
 /* -------------------------------------------------------------------------- */
 
-const RAIL_PARTICLES = 13000;
+const RAIL_PARTICLES = 4200;
 const RAIL_HALF = 20;
 /** Measured on the corpus: ~18% of processed volume fails. */
 const LEAK_SHARE = 0.18;
@@ -190,7 +155,7 @@ const railVertex = /* glsl */ `
     float z = aShape.y;
 
     vec3 tint = vec3(0.42, 0.70, 1.0);
-    float glow = 0.5;
+    float glow = 0.34;
 
     if (leaks && t > leakAt) {
       float fall = (t - leakAt) / max(1.0 - leakAt, 0.0001);
@@ -227,7 +192,7 @@ const railFragment = /* glsl */ `
     float d = length(uv);
     if (d > 0.5) discard;
     float core = smoothstep(0.5, 0.0, d);
-    gl_FragColor = vec4(vTint * (0.9 + vGlow * 0.8), pow(core, 3.0) * (0.42 + vGlow * 0.7));
+    gl_FragColor = vec4(vTint * (0.75 + vGlow * 0.5), pow(core, 3.0) * (0.20 + vGlow * 0.34));
   }
 `;
 
@@ -252,7 +217,7 @@ function RevenueRail() {
       seed[j + 1] = (rand() + rand() + rand()) / 1.5 - 1;
       seed[j + 2] = rand();
       seed[j + 3] = rand();
-      shape[j] = 2.4 + rand() * 5.2;
+      shape[j] = 1.8 + rand() * 3.0;
       shape[j + 1] = -1 - rand() * 6;
       shape[j + 2] = 0.3 + rand() * 0.34;
       shape[j + 3] = 0.16 + rand() * 0.2;
@@ -314,21 +279,22 @@ const HERO_CARDS: Array<{
   pos: [number, number, number];
   delay: number;
 }> = [
-  { id: 'failed', title: '₹2,499', sub: 'Payment failed', tone: 'loss', pos: [5.0, 3.4, -6], delay: 0 },
-  { id: 'score', title: '87%', sub: 'Recovery probability', tone: 'info', pos: [8.4, 1.2, -4], delay: 0.15 },
-  { id: 'policy', title: 'Approved', sub: '18 guardrails passed', tone: 'mint', pos: [4.6, -1.4, -3], delay: 0.3 },
-  { id: 'done', title: '₹2,499', sub: 'Recovered', tone: 'mint', pos: [8.0, -3.6, -5], delay: 0.45 },
+  { id: 'failed', title: '₹2,499', sub: 'Payment failed', tone: 'loss', pos: [7.4, 3.5, -4], delay: 0 },
+  { id: 'score', title: '87%', sub: 'Recovery probability', tone: 'info', pos: [7.4, 1.1, -4], delay: 0.12 },
+  { id: 'policy', title: 'Approved', sub: '18 guardrails passed', tone: 'mint', pos: [7.4, -1.3, -4], delay: 0.24 },
+  { id: 'done', title: '₹2,499', sub: 'Recovered', tone: 'mint', pos: [7.4, -3.7, -4], delay: 0.36 },
 ];
 
 const CARD_TONE = {
-  loss: 'border-loss-500/40 text-loss-400 shadow-[0_0_28px_-6px_rgba(239,68,68,0.35)]',
-  info: 'border-razorpay-400/45 text-razorpay-300 shadow-[0_0_28px_-6px_rgba(51,149,255,0.4)]',
-  mint: 'border-mint-500/45 text-mint-300 shadow-[0_0_28px_-6px_rgba(45,212,191,0.4)]',
+  loss: 'border-loss-500/30 text-loss-400',
+  info: 'border-razorpay-400/30 text-razorpay-300',
+  mint: 'border-mint-500/30 text-mint-300',
 } as const;
 
 function HeroCards() {
   const { progress } = useWorld();
   const group = useRef<THREE.Group>(null);
+  const [shown, setShown] = useState(true);
 
   useFrame((state) => {
     const g = group.current;
@@ -337,16 +303,18 @@ function HeroCards() {
     g.children.forEach((child, i) => {
       const card = HERO_CARDS[i];
       if (!card) return;
-      // Each card drifts on its own phase, so the set never pulses in unison.
-      child.position.y = card.pos[1] + Math.sin(t * 0.55 + i * 1.7) * 0.22;
-      child.position.x = card.pos[0] + Math.cos(t * 0.34 + i * 2.1) * 0.13;
+      // Barely moving. The drift is there to keep the column from looking pasted on, not
+      // to be noticed — at the previous amplitude four cards bobbing read as clutter.
+      child.position.y = card.pos[1] + Math.sin(t * 0.4 + i * 1.7) * 0.05;
     });
-    g.visible = progress.current < 0.16;
+    const on = progress.current < 0.12;
+    g.visible = on;
+    setShown((prev) => (prev === on ? prev : on));
   });
 
   return (
     <group ref={group} position={[0, 0, STATION_Z.hero]}>
-      {HERO_CARDS.map((card) => (
+      {(shown ? HERO_CARDS : []).map((card) => (
         <Html
           key={card.id}
           transform
@@ -357,7 +325,7 @@ function HeroCards() {
         >
           <div
             className={cn(
-              'w-[190px] rounded-xl border bg-ink-950/88 px-4 py-3 backdrop-blur-xl',
+              'w-[176px] rounded-lg border bg-ink-950/[0.96] px-3.5 py-2.5 backdrop-blur-xl',
               'animate-[fadeUp_0.9s_ease-out_both]',
               CARD_TONE[card.tone],
             )}
@@ -365,183 +333,13 @@ function HeroCards() {
           >
             <div className="flex items-center gap-2">
               {card.tone === 'info' ? <RazorpayMark className="h-3" /> : null}
-              <span className="text-2xl font-light tracking-tight">{card.title}</span>
+              <span className="text-xl font-light tracking-tight">{card.title}</span>
             </div>
             <p className="mt-1 text-[11px] leading-tight text-silver-400">{card.sub}</p>
           </div>
         </Html>
       ))}
     </group>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Station 2 — the rails, and the layer above them                             */
-/* -------------------------------------------------------------------------- */
-
-function RailsStation() {
-  const { progress, marks } = useWorld();
-  const group = useRef<THREE.Group>(null);
-  const [visible, setVisible] = useState(false);
-
-  useFrame((state) => {
-    const g = group.current;
-    if (!g) return;
-    const on = stationOpacity(progress.current, marks.current.rails, 0.15) > 0.02;
-    g.visible = on;
-    setVisible((prev) => (prev === on ? prev : on));
-    g.position.y = Math.sin(state.clock.elapsedTime * 0.4) * 0.08;
-  });
-
-  return (
-    <group ref={group} position={[0, 0, STATION_Z.rails]}>
-      {/* The rail: a wide, flat plane low in the scene. Infrastructure you stand on. */}
-      <mesh position={[0, -3.4, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[34, 22, 1, 1]} />
-        <meshBasicMaterial color="#0C2451" transparent opacity={0.5} depthWrite={false} />
-      </mesh>
-      <gridHelper args={[34, 24, '#3395FF', '#12294d']} position={[0, -3.38, 0]}>
-        <meshBasicMaterial attach="material" transparent opacity={0.2} />
-      </gridHelper>
-
-      {visible ? (
-        <>
-          <Html transform position={[7.6, -2.0, 4]} distanceFactor={13} style={{ pointerEvents: 'none' }}>
-            <div className="w-[300px] text-center">
-              <div className="flex items-center justify-center gap-2">
-                <RazorpayMark className="h-5" />
-                <span className="text-lg font-medium text-razorpay-300">Razorpay</span>
-              </div>
-              <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-silver-500">
-                Payment rails
-              </p>
-            </div>
-          </Html>
-
-          <Html transform position={[7.6, 3.6, 4]} distanceFactor={13} style={{ pointerEvents: 'none' }}>
-            <div className="w-[340px] text-center">
-              <span className="text-lg font-medium text-mint-300">RECLAIM</span>
-              <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-silver-500">
-                Intelligence · Decisioning · Recovery
-              </p>
-            </div>
-          </Html>
-        </>
-      ) : null}
-
-      {/* The layer above: three translucent planes, stacked, glowing mint. */}
-      {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[0, 1.4 + i * 0.85, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[22 - i * 3, 14 - i * 2]} />
-          <meshBasicMaterial
-            color="#2dd4bf"
-            transparent
-            opacity={0.035}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Station 3 — the loop, walked through                                        */
-/* -------------------------------------------------------------------------- */
-
-const LOOP_STAGES = [
-  'Detect',
-  'Diagnose',
-  'Predict',
-  'Decide',
-  'Guard',
-  'Execute',
-  'Measure',
-  'Learn',
-] as const;
-
-function LoopStation() {
-  const { progress, marks } = useWorld();
-  const group = useRef<THREE.Group>(null);
-  const [active, setActive] = useState(-1);
-
-  const positions = useMemo(
-    () =>
-      LOOP_STAGES.map((_, i) => {
-        // A shallow helix along the flight path: the camera passes through the sequence.
-        const t = i / (LOOP_STAGES.length - 1);
-        const angle = t * Math.PI * 1.9;
-        return new THREE.Vector3(6.8 + Math.sin(angle) * 4.0, -1.8 + Math.cos(angle) * 2.0, -t * 26);
-      }),
-    [],
-  );
-
-  useFrame(() => {
-    const g = group.current;
-    if (!g) return;
-    const centre = marks.current.loop;
-    g.visible = stationOpacity(progress.current, centre, 0.14) > 0.02;
-    // Light each stage as the camera reaches it, so the loop is walked, not watched.
-    const local = THREE.MathUtils.clamp((progress.current - (centre - 0.1)) / 0.2, 0, 1);
-    const next = g.visible ? Math.floor(local * LOOP_STAGES.length) : -1;
-    setActive((prev) => (prev === next ? prev : next));
-  });
-
-  return (
-    <group ref={group} position={[0, 0, STATION_Z.loop]}>
-      {positions.map((p, i) => {
-        const on = i <= active;
-        return (
-          <group key={LOOP_STAGES[i]} position={p}>
-            <mesh>
-              <octahedronGeometry args={[on ? 0.42 : 0.3, 0]} />
-              <meshBasicMaterial
-                color={on ? '#5eead4' : '#42424c'}
-                wireframe
-                transparent
-                opacity={on ? 0.95 : 0.4}
-              />
-            </mesh>
-            <Html transform position={[0, 0.95, 0]} distanceFactor={13} style={{ pointerEvents: 'none' }}>
-              <div className="w-[150px] text-center">
-                <div
-                  className="text-sm font-medium transition-colors duration-500"
-                  style={{ color: on ? '#5eead4' : 'rgba(124,124,138,0.75)' }}
-                >
-                  {LOOP_STAGES[i]}
-                </div>
-                <div className="text-[9px] uppercase tracking-[0.16em] text-silver-700">
-                  {String(i + 1).padStart(2, '0')}
-                </div>
-              </div>
-            </Html>
-          </group>
-        );
-      })}
-
-      {/* The path itself, drawn through the stages. */}
-      <LoopPath points={positions} />
-    </group>
-  );
-}
-
-function LoopPath({ points }: { points: THREE.Vector3[] }) {
-  const geometry = useMemo(() => {
-    const curve = new THREE.CatmullRomCurve3(points);
-    const pts = curve.getPoints(160);
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    return g;
-  }, [points]);
-
-  useEffect(() => () => geometry.dispose(), [geometry]);
-
-  return (
-    <line>
-      <primitive object={geometry} attach="geometry" />
-      <lineBasicMaterial color="#2dd4bf" transparent opacity={0.24} depthWrite={false} />
-    </line>
   );
 }
 
@@ -555,7 +353,7 @@ function Dust() {
   const { progress, marks } = useWorld();
 
   const positions = useMemo(() => {
-    const n = 1400;
+    const n = 700;
     const arr = new Float32Array(n * 3);
     let s = 0x2545f491;
     const rand = () => {
@@ -577,7 +375,7 @@ function Dust() {
     if (!p) return;
     p.rotation.y = state.clock.elapsedTime * 0.006;
     const material = p.material as THREE.PointsMaterial;
-    material.opacity = 0.16 * (1 - band(progress.current, marks.current.handoff - 0.04, marks.current.handoff + 0.06));
+    material.opacity = 0.09 * (1 - band(progress.current, marks.current.handoff - 0.04, marks.current.handoff + 0.06));
   });
 
   return (
@@ -589,7 +387,7 @@ function Dust() {
         size={0.045}
         color="#6BB4FF"
         transparent
-        opacity={0.16}
+        opacity={0.09}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
         sizeAttenuation
@@ -702,8 +500,6 @@ export function LandingWorld({ className }: { className?: string }) {
           <fog attach="fog" args={['#050507', 26, 120]} />
           <RevenueRail />
           <HeroCards />
-          <RailsStation />
-          <LoopStation />
           <Dust />
           <FlightRig />
           <Handoff onChange={setInFlight} />

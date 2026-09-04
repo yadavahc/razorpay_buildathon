@@ -21,20 +21,68 @@ Detect → Diagnose → Predict → Decide → Guard → Execute → Measure →
 
 ## Table of contents
 
-| | | |
-|---|---|---|
-| [Hackathon track](#hackathon-track) | [The problem](#the-problem-we-solved) | [Objectives](#project-objectives) |
-| [Quick start](#quick-start) | [Our solution](#our-solution) | [Key features](#key-features) |
-| [Architecture](#architecture) | [Technical stack](#technical-stack) | [AI implementation](#ai-implementation) |
-| [Razorpay integration](#razorpay-integration) | [Landing page](#the-landing-page) | [The data](#the-data) |
-| [The model](#the-model) | [The guardrails](#the-guardrails) | [Testing](#testing) |
-| [Security](#security) | [Firebase](#firebase) | [Project structure](#project-structure) |
-| [Deployment](#deployment) | [Challenges](#challenges-we-faced) | [Design decisions](#design--product-decisions) |
-| [Impact](#project-impact) | [Future work](#future-improvements) | [Learnings](#buildathon-learnings) |
+| # | Section | # | Section |
+|---|---|---|---|
+| 1 | [Project overview](#1-project-overview) | 14 | [Design decisions](#14-design-decisions) |
+| 2 | [Hackathon track](#2-hackathon-track) | 15 | [Project impact](#15-project-impact) |
+| 3 | [Problem statement](#3-problem-statement) | 16 | [Future improvements](#16-future-improvements) |
+| 4 | [Project objectives](#4-project-objectives) | 17 | [Installation & setup](#17-installation-setup) |
+| 5 | [Our solution](#5-our-solution) | 18 | [Environment variables](#18-environment-variables) |
+| 6 | [Key features](#6-key-features) | 19 | [Project structure](#19-project-structure) |
+| 7 | [How the project works](#7-how-the-project-works) | 20 | [Demo](#20-demo) |
+| 8 | [System architecture](#8-system-architecture) | 21 | [Testing](#21-testing) |
+| 9 | [Technical stack](#9-technical-stack) | 22 | [Security considerations](#22-security-considerations) |
+| 10 | [AI implementation](#10-ai-implementation) | 23 | [Buildathon learnings](#23-buildathon-learnings) |
+| 11 | [Razorpay integration](#11-razorpay-integration) | 24 | [Team & contributions](#24-team-contributions) |
+| 12 | [The landing page](#12-the-landing-page) | 25 | [Conclusion](#25-conclusion) |
+| 13 | [Challenges during the buildathon](#13-challenges-during-the-buildathon) | | |
+
+**Reference sections:** [The data](#the-data) · [The model](#the-model) · [The guardrails](#the-guardrails) · [Quick start](#quick-start) · [Firebase](#firebase) · [Deployment](#deployment) · [A note on synthetic data](#a-note-on-synthetic-data)
 
 ---
 
-## Hackathon track
+## 1. Project overview
+
+**RECLAIM is a decisioning layer that sits on top of payment infrastructure.** It watches for
+revenue that has failed to settle, works out which of it is genuinely recoverable, prices every
+possible intervention, authorises exactly one through deterministic guardrails, executes it
+against the payment rail, and measures what actually came back.
+
+### The problem it addresses
+
+Payment failure is a permanent structural leak, not an edge case. On the corpus this system
+runs against, **18% of payment volume fails** - Rs 6.46 crore of gross attempted revenue against
+Rs 34.47 crore captured. Most of it is not fraud: it is insufficient funds on the 28th, an
+expired card on a subscription, an abandoned 3DS challenge, an issuer having a bad twenty
+minutes. A large share is recoverable. Almost none is recovered, because nobody can tell which
+share is which - and chasing the wrong ones costs money and customer goodwill.
+
+### What it does
+
+| | |
+|---|---|
+| **Detects** | Revenue loss across four channels: failed payments, subscription dunning, abandoned checkouts, overdue invoices |
+| **Diagnoses** | Classifies each failure against a 17-reason taxonomy, using an LLM over evidence gathered by 12 typed tools |
+| **Predicts** | Scores recoverability with a calibrated model (ROC AUC 0.762), decomposed into per-feature contributions |
+| **Decides** | Prices all six interventions in integer paise; doing nothing scores exactly zero |
+| **Guards** | 18 deterministic checks stand between a recommendation and a charge |
+| **Executes** | Idempotent, bounded-retry execution against Razorpay or an offline simulator |
+| **Measures** | Only captured money counts as recovered |
+| **Learns** | Realised outcomes feed the next model fit and price what the guardrails cost |
+
+### The workflow in one line
+
+```
+Detect -> Diagnose -> Predict -> Decide -> Guard -> Execute -> Measure -> Learn
+```
+
+The defining constraint: **the AI never moves money.** A language model diagnoses and explains;
+a separate deterministic engine authorises. That separation is architectural, not a prompt
+instruction - see [AI implementation](#10-ai-implementation).
+
+---
+
+## 2. Hackathon track
 
 **Track 3 — AI Revenue Recovery.**
 
@@ -84,7 +132,9 @@ on a cadence and reports how many succeeded. Three things separate RECLAIM from 
 
 ---
 
-## The problem we solved
+---
+
+## 3. Problem statement
 
 ### The real-world problem
 
@@ -141,7 +191,9 @@ structurally prevented from participating in the parts that are arithmetic and a
 
 ---
 
-## Project objectives
+---
+
+## 4. Project objectives
 
 ### Business objectives
 
@@ -170,33 +222,9 @@ structurally prevented from participating in the parts that are arithmetic and a
 
 ---
 
-## Quick start
-
-Three commands. No credentials, no accounts, no external services.
-
-```bash
-npm install
-npm run bootstrap    # generate the synthetic corpus, then train the model
-npm run dev          # http://localhost:3000
-```
-
-`npm run bootstrap` writes a deterministic corpus to `data/` and fits the
-recovery-probability model on it. The dashboard is populated the moment it opens.
-
-To see the whole system work end to end, open **Demo mode** and press *Run live recovery*.
-To see the pipeline explained on a real case, press **See how it works** on the landing page.
-
-> The dev server honours `PORT`, so `PORT=3001 npm run dev` works if 3000 is taken.
-
-### Verifying the build
-
-```bash
-npm run verify       # typecheck → full test suite + quality report → production build
-```
-
 ---
 
-## Our solution
+## 5. Our solution
 
 ### What the application does
 
@@ -242,7 +270,9 @@ engine — there is no second implementation of anything.
 
 ---
 
-## Key features
+---
+
+## 6. Key features
 
 Every feature listed here is implemented in this repository and reachable in the UI.
 
@@ -286,7 +316,88 @@ Fifteen screens under `/dashboard`:
 
 ---
 
-## Architecture
+---
+
+## 7. How the project works
+
+A complete walk of one recovery case, from the event that starts it to the audit entry that
+closes it. This is the same sequence the **See how it works** demo animates on real data.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as Payment rail (Razorpay)
+    participant I as Ingestion
+    participant A as Agent layer + LLM
+    participant M as Recovery model
+    participant E as Expected-value engine
+    participant G as Policy engine
+    participant X as Action executor
+    participant O as Outcome + Audit
+
+    P->>I: payment failed (Rs 2,499, insufficient_funds)
+    I->>I: open recovery case, record amount at risk
+    I->>A: case context
+    A->>A: 12 typed tools - customer, history, subscription, prior attempts
+    A->>M: feature vector
+    M-->>A: 87% recoverable + per-feature drivers
+    A->>E: diagnosis + probability
+    E->>E: price all 6 strategies in paise (p x amount - cost - goodwill)
+    E->>G: recommended strategy + expected value
+    G->>G: 18 deterministic checks
+    alt allowed
+        G->>X: authorised
+        X->>X: claim idempotency key (before any side effect)
+        X->>P: execute (retry / payment link)
+        P-->>X: provider result
+    else denied
+        G-->>O: blocked, with reason codes
+    end
+    X->>O: record outcome - only captured money counts
+    O->>O: append hash-chained audit entry
+    O-->>M: realised outcome becomes training evidence
+```
+
+### Step by step
+
+1. **A failure arrives.** Either a browser request hits a Next.js route handler, or a Cloud
+   Function fires on a Firestore write or a verified Razorpay webhook. Both construct the same
+   `RecoveryEngine` - there is no second implementation.
+2. **Ingestion opens a case**, recording the amount at risk, the failure reason and the channel.
+   Detection is idempotent, so a replayed event never opens a competing second case for the same
+   rupees.
+3. **The agent layer gathers evidence** through 12 typed tools. Every call passes five gates
+   before it runs: existence, authorisation by scope, Zod validation, idempotency, audit. The LLM
+   sees tool *results*; it never touches the store.
+4. **The model scores recoverability** and returns the per-feature logit contributions that the
+   Decision Inspector renders.
+5. **The expected-value engine prices all six strategies** in integer paise. Doing nothing scores
+   exactly zero, so every action has a hurdle to clear.
+6. **The policy engine evaluates 18 checks** and returns allow, deny, or require-human. Every
+   check runs even after one has failed, because the audit record needs all of them.
+7. **The action executor claims an idempotency key transactionally *before* the provider call**,
+   then executes under a bounded retry with exponential backoff, a circuit breaker, and a
+   fallback chain that never revisits a strategy.
+8. **The outcome is measured** from the provider's reported state. A payment link issued but
+   unpaid is recorded as *awaiting customer*, not as revenue.
+9. **The audit trail appends a hash-chained entry** for every decision and side effect.
+10. **The result becomes evidence** - for the next model fit, and for the regret ledger that
+    prices what the guardrails cost.
+
+### What a user does
+
+| Action | What happens |
+|---|---|
+| Opens the landing page | Live portfolio figures, computed from stored records at request time |
+| Clicks **See how it works** | A real recovery case is fetched and the eight stages animate on its actual numbers |
+| Opens the **Control tower** | Revenue at risk, recoverable, recovered, funnel, opportunity map |
+| Opens a **case** | Full decision chain: signals, probability, priced options, verdicts, action, outcome, opportunity graph |
+| Runs **Demo mode / live recovery** | One case driven through the entire pipeline live, audit entries appearing as it goes |
+| Runs **Demo mode / batch** | Hundreds of cases processed, with before and after portfolio figures |
+
+---
+
+## 8. System architecture
 
 ```mermaid
 flowchart TB
@@ -306,7 +417,7 @@ flowchart TB
     subgraph intel["🧠  INTELLIGENCE LAYER"]
         ING["Ingestion<br/><i>4 loss channels</i>"]
         MODEL["Recovery model<br/><i>logistic regression · 26 features</i>"]
-        AGENTS["Agents &amp; Copilot<br/><i>11 typed tools</i>"]
+        AGENTS["Agents &amp; Copilot<br/><i>12 typed tools</i>"]
         LLM{{"LLM reasoner<br/><i>Gemini / OpenAI / Anthropic</i>"}}
     end
 
@@ -382,7 +493,7 @@ flowchart TB
 1. **A failure enters.** Either the browser hits a route handler, or a Cloud Function fires
    on a Firestore write or a Razorpay webhook. Both construct the same `RecoveryEngine`.
 2. **Ingestion** opens a case, recording the amount at risk and the failure reason.
-3. **The agent layer** gathers evidence through 11 typed tools. Each tool passes five gates —
+3. **The agent layer** gathers evidence through 12 typed tools. Each tool passes five gates —
    existence, authorisation by scope, zod validation, idempotency, audit — before it runs.
    The LLM sees tool *results*; it never touches the store directly.
 4. **The model** scores recoverability and returns per-feature contributions.
@@ -418,7 +529,9 @@ Full detail in [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
-## Technical stack
+---
+
+## 9. Technical stack
 
 | Layer | Technology | Version | Why |
 |---|---|---|---|
@@ -460,7 +573,9 @@ Full detail in [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
-## AI implementation
+---
+
+## 10. AI implementation
 
 There are **two distinct AI systems** here doing two different jobs, and keeping them apart
 is the central design decision of the project.
@@ -546,7 +661,9 @@ strictly worse.
 
 ---
 
-## Razorpay integration
+---
+
+## 11. Razorpay integration
 
 <img src="https://razorpay.com/favicon.png" width="16" height="16" alt="" /> RECLAIM is
 built to sit on top of Razorpay's rails. The relationship is stated plainly across the
@@ -621,80 +738,53 @@ failure detected → case opened → scored → priced → policy-authorised
 
 ---
 
-## The landing page
+---
+
+## 12. The landing page
 
 ![Landing page](docs/screenshots/landing.png)
 
 A premium, Razorpay-inspired landing experience built with Three.js, Framer Motion and a
 synthesised Web Audio sound design.
 
-### One continuous 3D world
+### A restrained 3D hero
 
-The landing page is not a flat page with an animation on it. A **single WebGL canvas is
-fixed behind the entire document**, holding one continuous environment, and scrolling flies
-the camera forward through stations laid out along the Z axis:
+The landing page carries a **single WebGL canvas fixed behind the document**, and the hero
+is where it does its work. The design brief it answers is "premium fintech, not a game":
+depth and motion in service of the message, never competing with it.
 
-| Station | What is there |
-|---|---|
-| **Hero** | The revenue rail, and four live transaction cards |
-| **Rails** | The Razorpay grid receding below, RECLAIM's layers above it |
-| **Loop** | The eight pipeline stages, arranged as a helix the camera travels down |
-| **Handoff** | The flight world fades out and the interactive architecture map takes over |
+- **The revenue rail** — a GPU-shaded stream of particles flowing along a payment rail in
+  the lower band of the frame, well clear of the headline. A share of them fails and falls
+  away; RECLAIM catches part of what fell and returns it glowing mint. The proportions are
+  not decorative: the leak (18%) and recovery (57.8%) shares come from the corpus's measured
+  rates, so the motion depicts the real portfolio.
+- **Four transaction cards** float in 3D in an ordered column: the same case at four moments
+  of its life, in pipeline order, so the hero states the claim without a caption.
 
-Scrolling does not swap scenes, so the page reads as one place you move through. The station
-positions are **measured from the real DOM sections** on mount and on resize, and the camera
-waypoints are derived from those same measurements — one source of truth, so the camera is
-guaranteed to arrive where a station actually is even when the copy changes.
+  **₹2,499 Payment failed** → **87% Recovery probability** → **Approved · 18 guardrails
+  passed** → **₹2,499 Recovered**
+- **Depth without distraction.** Parallax responds to the cursor at a deliberately small
+  amplitude, the cards drift barely perceptibly, and fog carries distance. An earlier build
+  ran all three far harder and the hero read as unstable rather than three-dimensional.
+- **The masthead sits on clean ground.** A scrim keeps anything from travelling up behind
+  the nav, and the copy column has its own wash, so type never fights the canvas for
+  contrast.
 
-Two rules keep it from becoming a gaming demo:
+All motion lives in the **vertex shader**: each particle derives its whole trajectory from
+four seeds plus a clock, so the CPU uploads the buffers once at mount and does nothing per
+frame. Typography in the world is real DOM positioned in 3D (`<Html transform>`), not a
+texture, so it stays crisp, selectable and reachable by a screen reader.
 
-- **Every object is real.** Each is either a measured quantity from the corpus or an actual
-  component of the system. There is no decorative geometry.
-- **All typography is real DOM positioned in 3D** (`<Html transform>`), not textures — so it
-  stays crisp at any zoom, remains selectable, and is reachable by a screen reader.
+As the page scrolls the hero recedes and the canvas fades out entirely before the
+architecture section, which runs its own interactive scene.
 
-Depth is carried by fog and per-object distance fades rather than a post-processing pass: a
-real depth-of-field blur would cost a second render target and would blur the text, which is
-the one thing that must stay sharp.
-
-### The revenue rail
-
-The hero renders a **GPU-shaded stream of 13,000 particles** flowing along a payment rail. A
-share of them fails and falls away; RECLAIM catches part of what fell and returns it to the
-rail glowing mint. The proportions are not decorative — the leak (18%) and recovery (57.8%)
-shares are set from the corpus's measured rates, so what you watch is the shape of the real
-portfolio.
-
-All motion lives in the **vertex shader**. Each particle derives its entire trajectory from
-four random seeds plus a clock, so the CPU uploads the buffers once at mount and does nothing
-per frame.
-
-### Floating transaction cards
-
-Four cards hang in the hero in 3D, drifting on independent phases and responding to the
-cursor. They are the same case at four moments of its life, in pipeline order, so the hero
-states the product's claim without needing a caption:
-
-**₹2,499 Payment failed** → **87% Recovery probability** → **Approved · 18 guardrails passed**
-→ **₹2,499 Recovered**
-
-### Payment rails → RECLAIM
-
-Scrolling past the hero flies the camera to a station where the argument is made spatially:
-a wide Razorpay-blue grid recedes below as the **payment rails**, and three translucent
-planes glow above it as **Intelligence · Decisioning · Recovery**. You are looking at the
-layer diagram from inside it.
-
-![Payment rails and the layer above them](docs/screenshots/world-rails.png)
-
-### Travelling the loop
-
-Further down, the camera enters a helix of the eight pipeline stages and travels along it.
-Each stage lights as the camera reaches it, and the ones behind recede into the fog — so
-**Detect → Diagnose → Predict → Decide → Guard → Execute → Measure → Learn** is walked
-rather than read.
-
-![Travelling through the recovery loop](docs/screenshots/world-loop.png)
+> **What we removed, and why.** An earlier version flew the camera through additional
+> stations laid out along −Z — a Razorpay rails grid, then a helix of the eight pipeline
+> stages. It demoed well at one viewport width and failed at others: the camera covers less
+> horizontal world space as the viewport narrows, so 3D labels positioned clear of the body
+> copy at 1600px landed directly on it at 1200px. Rather than special-case per breakpoint we
+> cut both stations. The hero keeps its depth, the architecture section keeps a genuinely
+> interactive 3D scene, and no 3D content overlaps text at any width.
 
 ### Three.js: the interactive infrastructure map
 
@@ -763,6 +853,8 @@ argument.
 
 ---
 
+---
+
 ## The data
 
 `npm run seed` generates a deterministic corpus. Same seed, same bytes, on any machine.
@@ -802,6 +894,8 @@ Three properties make the corpus worth measuring against:
 ```bash
 npm run seed -- --customers 2000 --payments 6000 --seed 7   # smaller, different world
 ```
+
+---
 
 ---
 
@@ -846,6 +940,8 @@ flatters the model.
 
 ---
 
+---
+
 ## The guardrails
 
 Eighteen deterministic checks, seventeen machine-readable reason codes. Three properties are
@@ -878,301 +974,9 @@ configuration, so changing one changes what the page says.
 
 ---
 
-## Testing
-
-```bash
-npm test              # 205 tests across 10 suites
-npm run test:report   # run the suite and publish results to the System Quality page
-```
-
-| Category | Tests | What it catches |
-|---|---|---|
-| Unit | 124 | Policy engine against every guardrail; expected value asserted to the rupee; integer money; audit hash chain; taxonomy consistency; regret ledger; incident detection; timing engine |
-| Integration | 24 | Repository semantics; atomic idempotency under concurrency; case lifecycle; detection across all four loss channels |
-| Agent | 27 | Tool authorisation by scope; validation against hostile arguments; idempotent calls; tool-failure handling |
-| End-to-end | 11 | The complete pipeline with nothing stubbed but the outside world; batch; money booked exactly once |
-| Failure injection | 19 | Every fault the lab can arm, asserted to produce a recovery rather than a crash |
-
-The suite runs against a **real engine over a real in-memory store** — real policy engine,
-real executor, real agents, real audit chain. A suite that mocks the executor proves the
-mock works.
-
-### Important test scenarios
-
-| Scenario | Expected behaviour |
-|---|---|
-| Two concurrent actions on the same idempotency key | Exactly one side effect; the second returns the first's result |
-| A retry on an expired card | Structurally refused, falls back to a payment link |
-| Provider times out mid-charge | Bounded retry, then fallback; the case still reaches a terminal state |
-| Customer has opted out | Hard denial regardless of expected value |
-| Policy denies every option | Case closes as unrecovered with an outcome and an audit entry — never left dangling |
-| Audit chain tampered with | Replay detects it on read |
-| LLM returns a strategy outside the action space | Overridden, and the override recorded |
-| LLM unavailable or slow | Degrades to the deterministic reasoner; the case still completes |
-
-**Thirteen real defects** were found and fixed by these tests during development, including a
-state-machine gap where a first-attempt retry captured the money and then failed to record
-it, and a fallback chain that proposed the strategy it had just been denied — silently
-abandoning positive expected value during quiet hours. They are documented in
-[`docs/architecture.md`](docs/architecture.md#defects-the-tests-caught).
-
-The System Quality page reads a file that a real test run writes. Until the suite has been
-run it says so, rather than showing a green badge nobody earned.
-
 ---
 
-## Security
-
-| Area | What is implemented |
-|---|---|
-| **Secret management** | No credential is ever committed. `.gitignore` covers `.env`, `.env.local`, `.env.*.local` and `serviceAccount*.json`. `.env.example` documents every variable with placeholder values only |
-| **API-key protection** | All keys are read from environment variables at runtime. The Gemini key is sent as an `x-goog-api-key` header rather than a query parameter, so it never lands in a URL a proxy or access log might retain |
-| **Payment verification** | Outcomes come from the provider's reported state, never inferred from a request succeeding. Only captured money counts as recovered |
-| **Webhook verification** | `razorpayWebhook` verifies `X-Razorpay-Signature` with HMAC-SHA256 in **constant time** before parsing. Unverified payloads are rejected with 401 and never reach the engine |
-| **Environment safety** | RECLAIM refuses to start against a non-`rzp_test_` Razorpay key |
-| **Authorisation** | Agent tools carry scopes; every call is checked against them before execution. Firestore rules scope reads by a `merchantId` custom claim |
-| **Client write denial** | Firestore rules deny all client writes on every collection that records money or decisions. The idempotency ledger is invisible to clients entirely |
-| **Input validation** | Every entity, every tool argument and every LLM response is parsed through a Zod schema. AI-generated parameters are never trusted directly |
-| **Duplicate prevention** | Idempotency keys claimed transactionally before any side effect |
-| **Sensitive data** | The corpus is entirely synthetic. No real customer records, no real payment credentials. **No messages are dispatched to anyone** — the messaging provider renders and stores bodies for inspection and sends nothing |
-| **Audit integrity** | Append-only hash chain, verified by replay rather than by a stored flag |
-
-> If any credential has ever been pasted into a chat, an issue, or a screenshot, treat it as
-> compromised and rotate it. That applies to Razorpay keys, Firebase service accounts and
-> LLM API keys alike.
-
----
-
-## Firebase
-
-RECLAIM runs entirely without Firebase. To use it:
-
-```bash
-# 1. Credentials. A service-account JSON file is easiest — the private key contains
-#    newlines, and a file avoids escaping them through shell and dotenv parsing.
-#    Project settings → Service accounts → Generate new private key
-FIREBASE_PROJECT_ID=your-project
-GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json     # gitignored
-
-# 2. Verify the connection before committing to anything. Writes ~30 documents to a
-#    throwaway namespace, exercises the transactional idempotency claim and the
-#    hash-chained audit append, then deletes them.
-npm run check:firestore
-
-# 3. Rules and indexes
-firebase deploy --only firestore:rules,firestore:indexes
-
-# 4. Upload the corpus (above the Spark free daily write tier for a full corpus)
-npm run seed:firestore
-
-# 5. Switch the app over
-RECLAIM_STORE=firestore
-
-# 6. Cloud Functions (optional)
-npm run functions:build && firebase deploy --only functions
-```
-
-`npm run check:firestore` is worth running first. It found two real bugs in the Firestore
-adapter that the in-memory tests could not: an implicit `orderBy('id')` that forced a
-composite index on every filtered read, and a chain-head document stored inside `audit_logs`
-where it polluted every merchant-scoped read of the trail.
-
-> **Before deploying rules**, note that `firestore.rules` denies all client writes and scopes
-> reads by a `merchantId` custom claim. If the project already serves another app, deploying
-> will lock that app out — check the existing collections first.
-
-Or run everything locally against the emulator:
-
-```bash
-firebase emulators:start          # sets FIRESTORE_EMULATOR_HOST
-npm run seed:firestore
-```
-
-**Security rules**: the browser reads, the server writes. Every financial mutation goes
-through the action executor behind the policy engine and the idempotency ledger; letting a
-client write a recovery action directly would route around all of it. See
-[`firestore.rules`](firestore.rules) and
-[`docs/firestore-schema.md`](docs/firestore-schema.md).
-
-**Cloud Functions** provide event-driven detection (`onPaymentFailure`), a scheduled sweep
-(`runRecoverySweep`), a signature-verified Razorpay webhook, and a daily audit-chain
-integrity check. They construct the same `RecoveryEngine` the web app does — a Cloud Function
-is a different trigger for the same engine, not a second implementation.
-
----
-
-## Setup & installation
-
-### Prerequisites
-
-| | |
-|---|---|
-| Node.js | 20 or later |
-| npm | 10 or later (workspaces) |
-| Firebase CLI | optional, only for Firestore / Functions / Hosting |
-| Razorpay test account | optional, only for `RECLAIM_MODE=razorpay_test` |
-
-### Install and run
-
-```bash
-git clone https://github.com/yadavahc/razorpay_buildathon.git
-cd razorpay_buildathon
-npm install
-npm run bootstrap          # generate the corpus, train the model  (required once)
-npm run dev                # http://localhost:3000
-```
-
-### Environment variables
-
-Everything is optional. Copy the template and fill in only what you need:
-
-```bash
-cp .env.example .env.local
-```
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `RECLAIM_MODE` | `demo` or `razorpay_test` | `demo` |
-| `RECLAIM_STORE` | `memory` or `firestore` | `memory` |
-| `RECLAIM_SEED` | Corpus seed | `20260901` |
-| `RECLAIM_MERCHANT_ID` | Merchant scope | `merch_reclaim_demo` |
-| `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Enable the LLM reasoner | *(deterministic reasoner)* |
-| `LLM_TIMEOUT_MS` | Reasoner timeout | `20000` |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Test-mode credentials (`rzp_test_` only) | — |
-| `RAZORPAY_WEBHOOK_SECRET` | Webhook HMAC secret | — |
-| `FIREBASE_PROJECT_ID` / `GOOGLE_APPLICATION_CREDENTIALS` | Admin SDK | — |
-| `NEXT_PUBLIC_FIREBASE_*` | Client SDK (auth, analytics) | — |
-| `POLICY_*` | Every guardrail threshold | see [guardrails](#the-guardrails) |
-
-> **Never commit real keys.** `.env.local` and `serviceAccount*.json` are gitignored.
-> `.env.example` contains placeholders only.
-
-### Build and run in production
-
-```bash
-npm run build
-npm start
-```
-
-`data/` must exist at **build** time or the deployed app reports its model as degraded.
-Either commit the artifact or put `npm run bootstrap` in the build command.
-
----
-
-## Project structure
-
-```
-packages/core/          The domain. Zero framework coupling, one runtime dependency (zod).
-  domain/               Failure taxonomy, case profiles, intervention economics
-  ml/                   Features, logistic regression, metrics, training pipeline
-  strategy/             Expected value, strategy engine
-  policy/               The deterministic guardrail engine
-  analytics/            Regret ledger, incident detector, timing engine
-  graph/                Recovery opportunity graph
-  agents/               Tool registry, analyst, strategist, copilot
-  providers/            Payment provider abstraction (demo + Razorpay)
-  llm/                  Reasoner abstraction (Gemini, OpenAI, Anthropic, deterministic)
-  store/                Persistence abstraction (memory + Firestore)
-  services/             Ingestion, context, prediction, execution, analytics, simulation
-  seed/                 Synthetic corpus generator
-  node/                 Filesystem and Admin SDK — never imported by the browser
-
-apps/web/               Next.js 15 application
-  src/app/api/          21 route handlers
-  src/app/dashboard/    15 screens
-  src/components/landing/   Hero scene, infrastructure map, product demo, sound design
-  src/components/charts/    Validated palette, mark specs, table twins
-  src/components/dashboard/ Opportunity graph, decision inspector, shell
-  src/lib/              API envelope, engine singleton, client hooks
-
-functions/              Firebase Cloud Functions (detection, sweep, webhook, audit check)
-scripts/                seed, train, evaluate, reset, seed:firestore,
-                        check:firestore, test:report
-tests/                  unit / integration / agent / e2e / failure
-docs/                   Architecture, Firestore schema, API reference, screenshots
-data/                   Generated corpus and model artifact (gitignored by default)
-```
-
-### Scripts
-
-| Command | What it does |
-|---|---|
-| `npm run bootstrap` | `seed` then `train` — everything a fresh clone needs |
-| `npm run seed` | Generate the synthetic corpus |
-| `npm run train` | Fit the model, write `data/model.json` |
-| `npm run evaluate` | Held-out report with oracle and baseline references |
-| `npm run dev` | Development server (honours `PORT`) |
-| `npm test` | Full suite |
-| `npm run test:report` | Suite + publish results to the quality page |
-| `npm run verify` | Typecheck, test, build |
-| `npm run reset` | Return the demo to a clean state |
-| `npm run seed:firestore` | Upload the corpus to Firestore |
-| `npm run check:firestore` | Verify the Firestore adapter against a real project |
-
----
-
-## Deployment
-
-```bash
-npm run build
-npm start
-```
-
-Any Node host works. The one constraint that applies everywhere: `data/` must exist at
-**build** time.
-
-### Firebase Hosting
-
-RECLAIM has dynamic route handlers and a server-side engine, so it cannot be a static export.
-Firebase's web-frameworks integration builds the Next.js app and puts the server on Cloud
-Functions:
-
-```bash
-firebase experiments:enable webframeworks   # once per machine
-firebase use reclaim-razorpay
-npm run bootstrap                           # corpus + model must exist before the build
-firebase deploy --only hosting:app
-```
-
-`firebase.json` targets the `app` hosting target, mapped to the site `reclaim-razorpay-2c628`
-in `.firebaserc`, with the backend in `asia-south1`.
-
-`NEXT_PUBLIC_*` values are inlined at build time, so they must be present in the environment
-when `firebase deploy` runs the build — `.env.local` at the repository root is read by
-`next.config.mjs`, which is enough for a local deploy.
-
-### Vercel
-
-Set the root directory to `apps/web`, add the variables from `.env.example`, and use
-`npm run bootstrap && npm run build` as the build command.
-
----
-
-## Demo & screenshots
-
-| | |
-|---|---|
-| **Landing page** — Three.js payment rail, live portfolio figures | ![Landing](docs/screenshots/landing.png) |
-| **Control tower** — revenue at risk, funnel, opportunity map, strategy performance | ![Control tower](docs/screenshots/control-tower.png) |
-| **Interactive infrastructure map** — nine subsystems, three tiers, hover to expand | ![Map](docs/screenshots/infrastructure-map.png) |
-| **See how it works** — the pipeline animated on a real case, with real priced strategies | ![Demo](docs/screenshots/how-it-works-demo.png) |
-
-### Flows worth demonstrating
-
-1. **Landing → See how it works** — the whole loop on a real case in about 35 seconds.
-2. **Demo mode → Run live recovery** — a single case detected, scored, priced, authorised
-   and executed live, with the audit entries appearing as it goes.
-3. **Demo mode → Run batch** — a few hundred cases processed, with before/after portfolio
-   figures and the per-run strategy mix.
-4. **Failure lab → arm a fault → run a recovery** — watch the fallback chain and the circuit
-   breaker rather than a stack trace.
-5. **Strategy simulator** — six policies over the same portfolio; RECLAIM's expected-value
-   policy against retry-everything, threshold-only and doing nothing.
-6. **Guardrail regret** — what the safety rules cost, with amendment proposals.
-
----
-
-## Challenges we faced
+## 13. Challenges during the buildathon
 
 Documented as they actually happened.
 
@@ -1364,7 +1168,9 @@ refactors were cheap and safe.
 
 ---
 
-## Design & product decisions
+---
+
+## 14. Design decisions
 
 ### The load-bearing decisions
 
@@ -1437,7 +1243,9 @@ honestly complete an operation — the authorisation leg of a retry — it is si
 
 ---
 
-## Project impact
+---
+
+## 15. Project impact
 
 ### Revenue recovery
 
@@ -1492,7 +1300,9 @@ scan kept as the reconciliation path — noted in the code rather than glossed o
 
 ---
 
-## Future improvements
+---
+
+## 16. Future improvements
 
 | Area | Improvement |
 |---|---|
@@ -1510,7 +1320,435 @@ scan kept as the reconciliation path — noted in the code rather than glossed o
 
 ---
 
-## Buildathon learnings
+---
+
+## Quick start
+
+Three commands. No credentials, no accounts, no external services.
+
+```bash
+npm install
+npm run bootstrap    # generate the synthetic corpus, then train the model
+npm run dev          # http://localhost:3000
+```
+
+`npm run bootstrap` writes a deterministic corpus to `data/` and fits the
+recovery-probability model on it. The dashboard is populated the moment it opens.
+
+To see the whole system work end to end, open **Demo mode** and press *Run live recovery*.
+To see the pipeline explained on a real case, press **See how it works** on the landing page.
+
+> The dev server honours `PORT`, so `PORT=3001 npm run dev` works if 3000 is taken.
+
+### Verifying the build
+
+```bash
+npm run verify       # typecheck → full test suite + quality report → production build
+```
+
+---
+
+---
+
+## 17. Installation & setup
+
+### Prerequisites
+
+| | |
+|---|---|
+| Node.js | 20 or later |
+| npm | 10 or later (workspaces) |
+| Firebase CLI | optional, only for Firestore / Functions / Hosting |
+| Razorpay test account | optional, only for `RECLAIM_MODE=razorpay_test` |
+
+### Install and run
+
+```bash
+git clone https://github.com/yadavahc/razorpay_buildathon.git
+cd razorpay_buildathon
+npm install
+npm run bootstrap          # generate the corpus, train the model  (required once)
+npm run dev                # http://localhost:3000
+```
+
+### Environment variables
+
+Everything is optional. Copy the template and fill in only what you need:
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `RECLAIM_MODE` | `demo` or `razorpay_test` | `demo` |
+| `RECLAIM_STORE` | `memory` or `firestore` | `memory` |
+| `RECLAIM_SEED` | Corpus seed | `20260901` |
+| `RECLAIM_MERCHANT_ID` | Merchant scope | `merch_reclaim_demo` |
+| `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Enable the LLM reasoner | *(deterministic reasoner)* |
+| `LLM_TIMEOUT_MS` | Reasoner timeout | `20000` |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Test-mode credentials (`rzp_test_` only) | — |
+| `RAZORPAY_WEBHOOK_SECRET` | Webhook HMAC secret | — |
+| `FIREBASE_PROJECT_ID` / `GOOGLE_APPLICATION_CREDENTIALS` | Admin SDK | — |
+| `NEXT_PUBLIC_FIREBASE_*` | Client SDK (auth, analytics) | — |
+| `POLICY_*` | Every guardrail threshold | see [guardrails](#the-guardrails) |
+
+> **Never commit real keys.** `.env.local` and `serviceAccount*.json` are gitignored.
+> `.env.example` contains placeholders only.
+
+### Build and run in production
+
+```bash
+npm run build
+npm start
+```
+
+`data/` must exist at **build** time or the deployed app reports its model as degraded.
+Either commit the artifact or put `npm run bootstrap` in the build command.
+
+---
+
+---
+
+## 18. Environment variables
+
+Every variable is optional. RECLAIM runs end to end with **no credentials at all**; removing a
+block downgrades that subsystem to its offline implementation and the UI labels the downgrade on
+screen.
+
+```bash
+cp .env.example .env.local
+```
+
+`.env.example` is committed and contains **placeholders only**. `.env.local` is gitignored and
+is the only file that should ever hold a real value.
+
+### Run mode
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `RECLAIM_MODE` | `demo` (offline deterministic provider) or `razorpay_test` (real test-mode API calls) | `demo` |
+| `RECLAIM_STORE` | `memory` (seeded corpus in process) or `firestore` (Admin SDK) | `memory` |
+| `RECLAIM_MERCHANT_ID` | Merchant scope for every query | `merch_reclaim_demo` |
+| `RECLAIM_SEED` | Corpus seed - same seed, same bytes, any machine | `20260901` |
+| `LOG_LEVEL` | `debug`, `info`, `warn` or `error` | `info` |
+
+### Reasoning layer
+
+Set **one** of these to enable a hosted LLM. With none set, RECLAIM uses its built-in
+deterministic reasoner and badges every explanation as such.
+
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini. Default model `gemini-3.5-flash-lite` |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | OpenAI. Default model `gpt-4o-mini` |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic. Default model `claude-sonnet-5` |
+| `LLM_TIMEOUT_MS` | Per-call timeout. Raise for reasoning models | `20000` |
+
+### Razorpay (test mode only)
+
+| Variable | Purpose |
+|---|---|
+| `RAZORPAY_KEY_ID` | Test-mode key. **Must start with `rzp_test_`** - RECLAIM refuses to start otherwise |
+| `RAZORPAY_KEY_SECRET` | Test-mode secret |
+| `RAZORPAY_WEBHOOK_SECRET` | HMAC secret used to verify the `X-Razorpay-Signature` header |
+
+### Firebase
+
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_FIREBASE_*` | Client SDK config (auth, analytics). Web API keys are public identifiers, not secrets - access is controlled by `firestore.rules` |
+| `FIREBASE_PROJECT_ID` | Admin SDK project |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to a service-account JSON. Preferred over inline keys: the private key contains newlines that are painful to escape through shell and dotenv |
+| `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | Inline alternative to the file |
+| `FIRESTORE_EMULATOR_HOST` | Point at the local emulator instead of a real project |
+
+### Guardrails
+
+Every threshold is configurable, and the Policy page renders them from the running
+configuration - changing one changes what the page says.
+
+| Variable | Default |
+|---|---|
+| `POLICY_MAX_RETRIES` | `3` |
+| `POLICY_COOLDOWN_HOURS` | `6` |
+| `POLICY_AUTO_EXECUTE_CEILING_MINOR` | `5000000` (Rs 50,000) |
+| `POLICY_DAILY_CONTACT_CAP` | `2` |
+| `POLICY_MIN_EXPECTED_VALUE_MINOR` | `2000` (Rs 20) |
+| `POLICY_QUIET_HOURS_START` / `POLICY_QUIET_HOURS_END` | `21` / `9`, in customer local time |
+| `POLICY_MAX_CHARGEBACKS` | `2` |
+| `POLICY_CASE_BUDGET_MINOR` | `30000` (Rs 300) |
+
+> **Never commit a real credential.** `.gitignore` covers `.env`, `.env.local`, `.env.*.local`
+> and `serviceAccount*.json`. If a key has ever appeared in a chat, an issue or a screenshot,
+> treat it as compromised and rotate it.
+
+---
+
+## 19. Project structure
+
+```
+packages/core/          The domain. Zero framework coupling, one runtime dependency (zod).
+  domain/               Failure taxonomy, case profiles, intervention economics
+  ml/                   Features, logistic regression, metrics, training pipeline
+  strategy/             Expected value, strategy engine
+  policy/               The deterministic guardrail engine
+  analytics/            Regret ledger, incident detector, timing engine
+  graph/                Recovery opportunity graph
+  agents/               Tool registry, analyst, strategist, copilot
+  providers/            Payment provider abstraction (demo + Razorpay)
+  llm/                  Reasoner abstraction (Gemini, OpenAI, Anthropic, deterministic)
+  store/                Persistence abstraction (memory + Firestore)
+  services/             Ingestion, context, prediction, execution, analytics, simulation
+  seed/                 Synthetic corpus generator
+  node/                 Filesystem and Admin SDK — never imported by the browser
+
+apps/web/               Next.js 15 application
+  src/app/api/          21 route handlers
+  src/app/dashboard/    15 screens
+  src/components/landing/   Hero scene, infrastructure map, product demo, sound design
+  src/components/charts/    Validated palette, mark specs, table twins
+  src/components/dashboard/ Opportunity graph, decision inspector, shell
+  src/lib/              API envelope, engine singleton, client hooks
+
+functions/              Firebase Cloud Functions (detection, sweep, webhook, audit check)
+scripts/                seed, train, evaluate, reset, seed:firestore,
+                        check:firestore, test:report
+tests/                  unit / integration / agent / e2e / failure
+docs/                   Architecture, Firestore schema, API reference, screenshots
+data/                   Generated corpus and model artifact (gitignored by default)
+```
+
+### Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run bootstrap` | `seed` then `train` — everything a fresh clone needs |
+| `npm run seed` | Generate the synthetic corpus |
+| `npm run train` | Fit the model, write `data/model.json` |
+| `npm run evaluate` | Held-out report with oracle and baseline references |
+| `npm run dev` | Development server (honours `PORT`) |
+| `npm test` | Full suite |
+| `npm run test:report` | Suite + publish results to the quality page |
+| `npm run verify` | Typecheck, test, build |
+| `npm run reset` | Return the demo to a clean state |
+| `npm run seed:firestore` | Upload the corpus to Firestore |
+| `npm run check:firestore` | Verify the Firestore adapter against a real project |
+
+---
+
+---
+
+## Firebase
+
+RECLAIM runs entirely without Firebase. To use it:
+
+```bash
+# 1. Credentials. A service-account JSON file is easiest — the private key contains
+#    newlines, and a file avoids escaping them through shell and dotenv parsing.
+#    Project settings → Service accounts → Generate new private key
+FIREBASE_PROJECT_ID=your-project
+GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json     # gitignored
+
+# 2. Verify the connection before committing to anything. Writes ~30 documents to a
+#    throwaway namespace, exercises the transactional idempotency claim and the
+#    hash-chained audit append, then deletes them.
+npm run check:firestore
+
+# 3. Rules and indexes
+firebase deploy --only firestore:rules,firestore:indexes
+
+# 4. Upload the corpus (above the Spark free daily write tier for a full corpus)
+npm run seed:firestore
+
+# 5. Switch the app over
+RECLAIM_STORE=firestore
+
+# 6. Cloud Functions (optional)
+npm run functions:build && firebase deploy --only functions
+```
+
+`npm run check:firestore` is worth running first. It found two real bugs in the Firestore
+adapter that the in-memory tests could not: an implicit `orderBy('id')` that forced a
+composite index on every filtered read, and a chain-head document stored inside `audit_logs`
+where it polluted every merchant-scoped read of the trail.
+
+> **Before deploying rules**, note that `firestore.rules` denies all client writes and scopes
+> reads by a `merchantId` custom claim. If the project already serves another app, deploying
+> will lock that app out — check the existing collections first.
+
+Or run everything locally against the emulator:
+
+```bash
+firebase emulators:start          # sets FIRESTORE_EMULATOR_HOST
+npm run seed:firestore
+```
+
+**Security rules**: the browser reads, the server writes. Every financial mutation goes
+through the action executor behind the policy engine and the idempotency ledger; letting a
+client write a recovery action directly would route around all of it. See
+[`firestore.rules`](firestore.rules) and
+[`docs/firestore-schema.md`](docs/firestore-schema.md).
+
+**Cloud Functions** provide event-driven detection (`onPaymentFailure`), a scheduled sweep
+(`runRecoverySweep`), a signature-verified Razorpay webhook, and a daily audit-chain
+integrity check. They construct the same `RecoveryEngine` the web app does — a Cloud Function
+is a different trigger for the same engine, not a second implementation.
+
+---
+
+---
+
+## Deployment
+
+```bash
+npm run build
+npm start
+```
+
+Any Node host works. The one constraint that applies everywhere: `data/` must exist at
+**build** time.
+
+### Firebase Hosting
+
+RECLAIM has dynamic route handlers and a server-side engine, so it cannot be a static export.
+Firebase's web-frameworks integration builds the Next.js app and puts the server on Cloud
+Functions:
+
+```bash
+firebase experiments:enable webframeworks   # once per machine
+firebase use reclaim-razorpay
+npm run bootstrap                           # corpus + model must exist before the build
+firebase deploy --only hosting:app
+```
+
+`firebase.json` targets the `app` hosting target, mapped to the site `reclaim-razorpay-2c628`
+in `.firebaserc`, with the backend in `asia-south1`.
+
+`NEXT_PUBLIC_*` values are inlined at build time, so they must be present in the environment
+when `firebase deploy` runs the build — `.env.local` at the repository root is read by
+`next.config.mjs`, which is enough for a local deploy.
+
+### Vercel
+
+Set the root directory to `apps/web`, add the variables from `.env.example`, and use
+`npm run bootstrap && npm run build` as the build command.
+
+---
+
+---
+
+## 20. Demo
+
+### Deployment status
+
+**There is no public deployment.** The Firebase Hosting target is configured
+(`reclaim-razorpay-2c628`, backend in `asia-south1`) but has not been deployed, so there is no
+live link to give - see [Deployment](#deployment) for the commands. The project runs locally
+from a clean clone in three commands and needs no credentials.
+
+```bash
+npm install && npm run bootstrap && npm run dev    # http://localhost:3000
+```
+
+### Screenshots
+
+| | |
+|---|---|
+| **Landing page** - the 3D hero, live portfolio figures, floating case cards | ![Landing](docs/screenshots/landing.png) |
+| **Control tower** - revenue at risk, funnel, opportunity map, strategy performance | ![Control tower](docs/screenshots/control-tower.png) |
+| **Interactive infrastructure map** - nine subsystems, three tiers, hover to expand | ![Map](docs/screenshots/infrastructure-map.png) |
+| **See how it works** - the pipeline animated on a real case with real priced strategies | ![Demo](docs/screenshots/how-it-works-demo.png) |
+
+### How to test the major features
+
+| # | Flow | What to look for |
+|---|---|---|
+| 1 | Landing, then **See how it works** | The badge reads *Live case case_xxxxxx*. Stage 4 shows all six strategies with real expected values, and the selected one is not always the highest success probability |
+| 2 | **Architecture** section | Hover any node in the 3D map - it expands and explains itself. Razorpay sits on the bottom execution tier |
+| 3 | `/dashboard/demo`, **Run live recovery** | Watch the eight stages execute live. Some runs end without recovering; that is the point |
+| 4 | `/dashboard/demo`, **Run batch** | A few hundred cases with before and after portfolio figures and the per-run strategy mix |
+| 5 | `/dashboard/lab`, arm a fault, then run | The fallback chain and circuit breaker engage instead of a stack trace |
+| 6 | `/dashboard/simulator` | Six policies over the same portfolio with identical seeded draws |
+| 7 | `/dashboard/regret` | What the guardrails cost, with evidence-backed amendment proposals |
+| 8 | `/dashboard/audit` | Hash-chained history, verified by replay on read |
+| 9 | `/dashboard/quality` | Test results, written by a real `npm run test:report` run |
+
+> Sound on the landing page is muted until you interact with the page (browser autoplay
+> policy). The toggle is in the top-right nav.
+
+---
+
+## 21. Testing
+
+```bash
+npm test              # 205 tests across 10 suites
+npm run test:report   # run the suite and publish results to the System Quality page
+```
+
+| Category | Tests | What it catches |
+|---|---|---|
+| Unit | 124 | Policy engine against every guardrail; expected value asserted to the rupee; integer money; audit hash chain; taxonomy consistency; regret ledger; incident detection; timing engine |
+| Integration | 24 | Repository semantics; atomic idempotency under concurrency; case lifecycle; detection across all four loss channels |
+| Agent | 27 | Tool authorisation by scope; validation against hostile arguments; idempotent calls; tool-failure handling |
+| End-to-end | 11 | The complete pipeline with nothing stubbed but the outside world; batch; money booked exactly once |
+| Failure injection | 19 | Every fault the lab can arm, asserted to produce a recovery rather than a crash |
+
+The suite runs against a **real engine over a real in-memory store** — real policy engine,
+real executor, real agents, real audit chain. A suite that mocks the executor proves the
+mock works.
+
+### Important test scenarios
+
+| Scenario | Expected behaviour |
+|---|---|
+| Two concurrent actions on the same idempotency key | Exactly one side effect; the second returns the first's result |
+| A retry on an expired card | Structurally refused, falls back to a payment link |
+| Provider times out mid-charge | Bounded retry, then fallback; the case still reaches a terminal state |
+| Customer has opted out | Hard denial regardless of expected value |
+| Policy denies every option | Case closes as unrecovered with an outcome and an audit entry — never left dangling |
+| Audit chain tampered with | Replay detects it on read |
+| LLM returns a strategy outside the action space | Overridden, and the override recorded |
+| LLM unavailable or slow | Degrades to the deterministic reasoner; the case still completes |
+
+**Thirteen real defects** were found and fixed by these tests during development, including a
+state-machine gap where a first-attempt retry captured the money and then failed to record
+it, and a fallback chain that proposed the strategy it had just been denied — silently
+abandoning positive expected value during quiet hours. They are documented in
+[`docs/architecture.md`](docs/architecture.md#defects-the-tests-caught).
+
+The System Quality page reads a file that a real test run writes. Until the suite has been
+run it says so, rather than showing a green badge nobody earned.
+
+---
+
+---
+
+## 22. Security considerations
+
+| Area | What is implemented |
+|---|---|
+| **Secret management** | No credential is ever committed. `.gitignore` covers `.env`, `.env.local`, `.env.*.local` and `serviceAccount*.json`. `.env.example` documents every variable with placeholder values only |
+| **API-key protection** | All keys are read from environment variables at runtime. The Gemini key is sent as an `x-goog-api-key` header rather than a query parameter, so it never lands in a URL a proxy or access log might retain |
+| **Payment verification** | Outcomes come from the provider's reported state, never inferred from a request succeeding. Only captured money counts as recovered |
+| **Webhook verification** | `razorpayWebhook` verifies `X-Razorpay-Signature` with HMAC-SHA256 in **constant time** before parsing. Unverified payloads are rejected with 401 and never reach the engine |
+| **Environment safety** | RECLAIM refuses to start against a non-`rzp_test_` Razorpay key |
+| **Authorisation** | Agent tools carry scopes; every call is checked against them before execution. Firestore rules scope reads by a `merchantId` custom claim |
+| **Client write denial** | Firestore rules deny all client writes on every collection that records money or decisions. The idempotency ledger is invisible to clients entirely |
+| **Input validation** | Every entity, every tool argument and every LLM response is parsed through a Zod schema. AI-generated parameters are never trusted directly |
+| **Duplicate prevention** | Idempotency keys claimed transactionally before any side effect |
+| **Sensitive data** | The corpus is entirely synthetic. No real customer records, no real payment credentials. **No messages are dispatched to anyone** — the messaging provider renders and stores bodies for inspection and sends nothing |
+| **Audit integrity** | Append-only hash chain, verified by replay rather than by a stored flag |
+
+> If any credential has ever been pasted into a chat, an issue, or a screenshot, treat it as
+> compromised and rotate it. That applies to Razorpay keys, Firebase service accounts and
+> LLM API keys alike.
+
+---
+
+---
+
+## 23. Buildathon learnings
 
 **AI development.** The most valuable decision was choosing where *not* to use the model. An
 LLM in the authorisation path would have been faster to build and impossible to trust.
@@ -1548,7 +1786,9 @@ which meant it was always demonstrable.
 
 ---
 
-## Team contributions
+---
+
+## 24. Team & contributions
 
 This project was built by a single contributor for the Razorpay Buildathon.
 
@@ -1560,7 +1800,9 @@ Repository history is the accurate record: `git log --format="%an" | sort -u`.
 
 ---
 
-## Conclusion
+---
+
+## 25. Conclusion
 
 We built **RECLAIM**, an autonomous revenue-recovery decisioning engine that sits above
 payment infrastructure and answers the question the rails cannot: *of everything that just
@@ -1593,6 +1835,8 @@ against the real engine, and where an operation is simulated the interface says 
 
 That last property is the one we would most want judged. It would have been easy to make the
 numbers larger.
+
+---
 
 ---
 
