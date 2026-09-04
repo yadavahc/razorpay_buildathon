@@ -628,17 +628,73 @@ failure detected → case opened → scored → priced → policy-authorised
 A premium, Razorpay-inspired landing experience built with Three.js, Framer Motion and a
 synthesised Web Audio sound design.
 
-### Three.js: the payment rail
+### One continuous 3D world
 
-The hero renders a **GPU-shaded stream of 14,000 particles** flowing left to right along a
-payment rail. A share of them fails and falls away; RECLAIM catches part of what fell and
-returns it to the rail glowing mint. The proportions are not decorative — the leak and
-recovery shares are set from the corpus's measured rates, so what you watch is the shape of
-the real portfolio.
+The landing page is not a flat page with an animation on it. A **single WebGL canvas is
+fixed behind the entire document**, holding one continuous environment, and scrolling flies
+the camera forward through stations laid out along the Z axis:
+
+| Station | What is there |
+|---|---|
+| **Hero** | The revenue rail, and four live transaction cards |
+| **Rails** | The Razorpay grid receding below, RECLAIM's layers above it |
+| **Loop** | The eight pipeline stages, arranged as a helix the camera travels down |
+| **Handoff** | The flight world fades out and the interactive architecture map takes over |
+
+Scrolling does not swap scenes, so the page reads as one place you move through. The station
+positions are **measured from the real DOM sections** on mount and on resize, and the camera
+waypoints are derived from those same measurements — one source of truth, so the camera is
+guaranteed to arrive where a station actually is even when the copy changes.
+
+Two rules keep it from becoming a gaming demo:
+
+- **Every object is real.** Each is either a measured quantity from the corpus or an actual
+  component of the system. There is no decorative geometry.
+- **All typography is real DOM positioned in 3D** (`<Html transform>`), not textures — so it
+  stays crisp at any zoom, remains selectable, and is reachable by a screen reader.
+
+Depth is carried by fog and per-object distance fades rather than a post-processing pass: a
+real depth-of-field blur would cost a second render target and would blur the text, which is
+the one thing that must stay sharp.
+
+### The revenue rail
+
+The hero renders a **GPU-shaded stream of 13,000 particles** flowing along a payment rail. A
+share of them fails and falls away; RECLAIM catches part of what fell and returns it to the
+rail glowing mint. The proportions are not decorative — the leak (18%) and recovery (57.8%)
+shares are set from the corpus's measured rates, so what you watch is the shape of the real
+portfolio.
 
 All motion lives in the **vertex shader**. Each particle derives its entire trajectory from
-four random seeds plus a clock, so the CPU uploads the buffers once at mount and does
-nothing per frame.
+four random seeds plus a clock, so the CPU uploads the buffers once at mount and does nothing
+per frame.
+
+### Floating transaction cards
+
+Four cards hang in the hero in 3D, drifting on independent phases and responding to the
+cursor. They are the same case at four moments of its life, in pipeline order, so the hero
+states the product's claim without needing a caption:
+
+**₹2,499 Payment failed** → **87% Recovery probability** → **Approved · 18 guardrails passed**
+→ **₹2,499 Recovered**
+
+### Payment rails → RECLAIM
+
+Scrolling past the hero flies the camera to a station where the argument is made spatially:
+a wide Razorpay-blue grid recedes below as the **payment rails**, and three translucent
+planes glow above it as **Intelligence · Decisioning · Recovery**. You are looking at the
+layer diagram from inside it.
+
+![Payment rails and the layer above them](docs/screenshots/world-rails.png)
+
+### Travelling the loop
+
+Further down, the camera enters a helix of the eight pipeline stages and travels along it.
+Each stage lights as the camera reaches it, and the ones behind recede into the fog — so
+**Detect → Diagnose → Predict → Decide → Guard → Execute → Measure → Learn** is walked
+rather than read.
+
+![Travelling through the recovery loop](docs/screenshots/world-loop.png)
 
 ### Three.js: the interactive infrastructure map
 
@@ -698,8 +754,12 @@ unreachable — which says so on screen rather than pretending.
 
 Smooth scrolling with reduced-motion support, section reveals on scroll, hover
 micro-interactions throughout, a Razorpay integration badge in the hero, and the mark in the
-architecture section, the demo, and the footer. Every 3D scene has a **static fallback** for
-`prefers-reduced-motion`.
+rails station, the architecture section, the demo and the footer.
+
+`prefers-reduced-motion` is honoured completely: the flight world does not mount at all, the
+infrastructure map renders a static list carrying the same nine subsystems and the same
+layering, and sound starts muted. Someone who has asked for less motion still gets the whole
+argument.
 
 ---
 
@@ -1278,7 +1338,24 @@ default for anyone who has asked for reduced motion.
 
 **Result.** Sound that is felt rather than heard, and trivially silenced.
 
-### 12. Buildathon time pressure
+### 12. Two sources of truth for one position
+
+**Problem.** After making the landing page one continuous 3D world, the loop station faded in
+while the camera was still forty units short of it, and the stage labels drifted over the
+architecture section's own canvas.
+
+**Why.** Station visibility was driven by measured DOM section offsets, but the camera
+waypoints were still hardcoded scroll fractions written against an earlier layout. Two
+sources of truth for the same position, guaranteed to disagree the moment any copy changed.
+
+**How we solved it.** Derived the flight path from the same measured marks the stations use,
+so the camera arrives where a station actually is by construction. Also fixed the station
+falloff, whose arithmetic never reached zero and left the rails labels a quarter visible from
+half a page away.
+
+**Result.** The world and the document stay in step, and both survive a copy edit.
+
+### 13. Buildathon time pressure
 
 The scope here is large. What kept it manageable: `packages/core` has no framework coupling,
 so the domain could be built and tested before any UI existed; every external dependency is

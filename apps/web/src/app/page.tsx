@@ -9,6 +9,7 @@ import {
   ProblemSection,
 } from '@/components/landing/sections';
 import { SoundProvider } from '@/components/landing/sound';
+import { LandingWorld } from '@/components/landing/world';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,10 @@ export default async function LandingPage() {
     // The sound design is scoped to this page. The dashboard is a working tool and the
     // provider never wraps it, so `useSound` there returns the no-op implementation.
     <SoundProvider>
+      {/* One canvas, fixed behind the whole document. The camera flies through it as the
+          page scrolls, so the sections read as places in one environment rather than as
+          separate visuals stacked on separate backgrounds. */}
+      <LandingWorld />
       <main id="main" className="relative">
         <Hero stats={stats} />
         <ProblemSection stats={stats} />

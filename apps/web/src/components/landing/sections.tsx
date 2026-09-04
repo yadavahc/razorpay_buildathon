@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRef, useState, type ReactNode } from 'react';
 import { formatMinorCompact, formatPercent } from '@reclaim/core/presentation';
 import { AnimatedNumber } from './animated-number';
-import { HeroScene } from './hero-scene';
 import { HowItWorks } from './how-it-works';
 import { InfrastructureMap } from './infrastructure-map';
 import { RazorpayBadge, RazorpayMark } from './razorpay-mark';
@@ -76,12 +75,10 @@ export function Hero({ stats }: { stats: LandingStats }) {
   return (
     <section className="relative isolate min-h-[100svh] overflow-hidden">
       {/* The flow field sits behind everything, masked so it never fights the type. */}
-      <HeroScene className="pointer-events-none absolute inset-0 -z-10 opacity-90" />
-      {/* Scrims, in order of what they protect. The stream is dense enough to destroy body
-          copy, so the type sits on its own ground rather than fighting for contrast: a
-          left-weighted wash under the headline column, then the usual vignette and floor. */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-ink-950 via-ink-950/85 to-transparent lg:via-ink-950/60" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-radial-fade" />
+      {/* Scrims only. The 3D world is a fixed canvas behind the whole document, so the
+          hero does not own a scene of its own any more — it just protects its own type
+          from the rail passing behind it. */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-ink-950 via-ink-950/80 to-transparent lg:via-ink-950/55" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-64 bg-gradient-to-t from-ink-950 to-transparent" />
 
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
@@ -376,7 +373,7 @@ export function LoopSection() {
   const ref = useRef<HTMLElement>(null);
   useSectionCue(ref);
   return (
-    <section ref={ref} id="how" className="relative border-y border-white/[0.06] bg-ink-900/40">
+    <section ref={ref} id="how" className="relative border-y border-white/[0.06] bg-ink-950/70 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-6 py-28">
         <Reveal>
           <p className="label-eyebrow">The closed loop</p>
@@ -530,7 +527,7 @@ export function ImpactSection({ stats }: { stats: LandingStats }) {
   const ref = useRef<HTMLElement>(null);
   useSectionCue(ref);
   return (
-    <section ref={ref} id="impact" className="relative border-t border-white/[0.06] bg-ink-900/40">
+    <section ref={ref} id="impact" className="relative border-t border-white/[0.06] bg-ink-950/70 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-6 py-28">
         <Reveal>
           <p className="label-eyebrow">Measurable impact</p>
