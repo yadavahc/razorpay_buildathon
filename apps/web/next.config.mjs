@@ -40,7 +40,11 @@ const nextConfig = {
    */
   outputFileTracingRoot: repoRoot,
   outputFileTracingIncludes: {
-    '/**': ['../../data/**/*.json'],
+    '/': ['../../data/*.json'],
+    '/**': ['../../data/*.json'],
+    '/**/*': ['../../data/*.json'],
+    '/api/**': ['../../data/*.json'],
+    '/api/**/*': ['../../data/*.json'],
   },
 
   // `@reclaim/core` ships TypeScript source rather than a build artifact, so the whole
