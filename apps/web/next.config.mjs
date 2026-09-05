@@ -30,6 +30,19 @@ if (credentials && !isAbsolute(credentials)) {
 const nextConfig = {
   reactStrictMode: true,
 
+  /**
+   * The corpus is read from disk at runtime with `fs`, not imported, so Next's dependency
+   * tracing cannot see it and a serverless deploy ships without it — the app then reports
+   * itself degraded with "No corpus found in data".
+   *
+   * Tracing from the repository root keeps `data/` at the root of the traced bundle, which
+   * is where `resolveDataDir` finds it when it walks up from the function's cwd.
+   */
+  outputFileTracingRoot: repoRoot,
+  outputFileTracingIncludes: {
+    '/**': ['../../data/**/*.json'],
+  },
+
   // `@reclaim/core` ships TypeScript source rather than a build artifact, so the whole
   // monorepo typechecks as one unit and there is no build step between editing a domain
   // rule and seeing it in the UI.

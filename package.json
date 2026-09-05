@@ -23,6 +23,7 @@
     "evaluate": "tsx scripts/evaluate-model.ts",
     "reset": "tsx scripts/reset-demo.ts",
     "bootstrap": "npm run seed && npm run train",
+    "bootstrap:deploy": "tsx scripts/seed.ts --no-csv --customers 3000 --payments 12000 --seed 7 && tsx scripts/train-model.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
