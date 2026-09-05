@@ -1,21 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
-  "//": [
-    "The generated corpus is gitignored, so a clean clone — which is what Vercel builds —",
-    "has an empty data/ directory and the app correctly reports itself degraded. The build",
-    "therefore regenerates it. The seed is deterministic, so the deployed figures are",
-    "reproducible rather than fixed.",
-    "",
-    "This instance runs a reduced corpus: 3,000 customers and 12,000 payments (~15MB)",
-    "rather than the 14,000 / 110,000 used locally (~142MB). A serverless function cannot",
-    "hold the full corpus — it exceeds the memory ceiling and the cold start runs past the",
-    "invocation timeout. Every figure on the deployed site is still computed from stored",
-    "records at request time; there are simply fewer records behind them."
-  ],
-
-  "buildCommand": "npm run bootstrap:deploy && npm run build --workspace @reclaim/web",
+  "framework": "nextjs",
   "installCommand": "npm install",
-  "outputDirectory": "apps/web/.next",
-  "framework": "nextjs"
+  "buildCommand": "npm run bootstrap:deploy && npm run build --workspace @reclaim/web",
+  "outputDirectory": "apps/web/.next"
 }
